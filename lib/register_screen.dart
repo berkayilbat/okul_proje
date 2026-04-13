@@ -69,7 +69,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     setState(() => _isLoading = true);
 
-    await AuthService.register(
+    final result = await AuthService.register(
       role: isEmployer ? 'Employer' : 'Employee',
       firstName: _firstNameController.text,
       lastName: _lastNameController.text,
@@ -82,8 +82,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     if (!mounted) return;
     setState(() => _isLoading = false);
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Kayıt başarılı! Lütfen giriş yapın.')));
-    Navigator.pop(context);
+    
+    if (result['status'] == 'success') {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result['message'] ?? 'Kayıt başarılı! Lütfen giriş yapın.')));
+      Navigator.pop(context);
+    } else {
+      String errMsg = result['message'] ?? 'Kayıt başarısız oldu.';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(errMsg), backgroundColor: Colors.red));
+    }
   }
 
   @override

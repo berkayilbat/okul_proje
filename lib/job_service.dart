@@ -1,13 +1,10 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'auth_service.dart';
-import 'dart:io' show Platform;
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'server_config.dart';
 
 class JobService {
-  // Aynı IP adresini alıyoruz
-  static const String _baseUrl = 'http://172.20.10.11/backend';
+  static String get _baseUrl => ServerConfig.baseUrl;
 
   // İlan Gönderme (İşveren)
   static Future<Map<String, dynamic>> addJob({
@@ -39,7 +36,10 @@ class JobService {
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       }
-      return {'status': 'error', 'message': 'HTTP Hatası: ${response.statusCode}'};
+      return {
+        'status': 'error',
+        'message': 'HTTP Hatası: ${response.statusCode}',
+      };
     } catch (e) {
       return {'status': 'error', 'message': 'Bağlantı hatası: $e'};
     }
@@ -109,10 +109,7 @@ class JobService {
       final response = await http.post(
         Uri.parse('$_baseUrl/apply_job.php'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'job_id': jobId,
-          'employee_phone': phone,
-        }),
+        body: jsonEncode({'job_id': jobId, 'employee_phone': phone}),
       );
 
       return jsonDecode(response.body);
@@ -122,7 +119,10 @@ class JobService {
   }
 
   // Başvuru Durumunu Değiştir veya Tamamla (İşveren)
-  static Future<Map<String, dynamic>> manageApplication(String applicationId, String action) async {
+  static Future<Map<String, dynamic>> manageApplication(
+    String applicationId,
+    String action,
+  ) async {
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/manage_application.php'),
@@ -134,6 +134,66 @@ class JobService {
       );
 
       return jsonDecode(response.body);
+    } catch (e) {
+      return {'status': 'error', 'message': 'Bağlantı hatası: $e'};
+    }
+  }
+
+  // Değerlendirme gönder (Puan ve Yorum)
+  static Future<Map<String, dynamic>> submitReview(
+    String applicationId,
+    int rating,
+    String comment,
+  ) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/submit_review.php'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'application_id': applicationId,
+          'rating': rating,
+          'comment': comment,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        return {
+          'status': 'error',
+          'message': 'HTTP Hatası: ${response.statusCode}',
+        };
+      }
+    } catch (e) {
+      return {'status': 'error', 'message': 'Bağlantı hatası: $e'};
+    }
+  }
+
+  // İşvereni Değerlendir (Çalışan)
+  static Future<Map<String, dynamic>> submitEmployerReview(
+    String applicationId,
+    int rating,
+    String comment,
+  ) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/submit_employer_review.php'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'application_id': applicationId,
+          'rating': rating,
+          'comment': comment,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        return {
+          'status': 'error',
+          'message': 'HTTP Hatası: ${response.statusCode}',
+        };
+      }
     } catch (e) {
       return {'status': 'error', 'message': 'Bağlantı hatası: $e'};
     }

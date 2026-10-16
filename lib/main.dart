@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'server_config.dart';
 import 'auth_service.dart';
 import 'login_screen.dart';
 import 'home_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await ServerConfig.discoverServer();
   final bool isLoggedIn = await AuthService.isLoggedIn();
   final String role = await AuthService.getRole();
   runApp(MyApp(isLoggedIn: isLoggedIn, role: role));
@@ -21,7 +23,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'My First App',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF4A148C)),
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF0A49A6)),
         useMaterial3: true,
       ),
       debugShowCheckedModeBanner: false,
@@ -30,9 +32,7 @@ class MyApp extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      supportedLocales: const [
-        Locale('tr', 'TR'),
-      ],
+      supportedLocales: const [Locale('tr', 'TR')],
       home: isLoggedIn ? HomeScreen(role: role) : const LoginScreen(),
     );
   }

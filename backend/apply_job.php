@@ -31,6 +31,6 @@ try {
     $stmt->execute([$job_id, $employee_phone]);
     echo json_encode(["status" => "success", "message" => "Başvurunuz alındı."]);
 } catch (Exception $e) {
-    echo json_encode(["status" => "error", "message" => "Başvuru sırasında hata oluştu: " . $e->getMessage()]);
+    echo json_encode(["status" => "error", "message" => "Başvuru işlemi gerçekleştirilemedi. Lütfen tekrar deneyin."]);
 }
 ?>

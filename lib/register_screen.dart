@@ -17,16 +17,40 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _lastNameController = TextEditingController();
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _ageController = TextEditingController();
   
   final _companyController = TextEditingController();
   final _taxNoController = TextEditingController();
   final _tcController = TextEditingController();
 
+  DateTime? _selectedBirthDate;
   bool _isLoading = false;
 
+  Future<void> _selectBirthDate() async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now().subtract(const Duration(days: 365 * 18)),
+      firstDate: DateTime(1900),
+      lastDate: DateTime.now(),
+    );
+    if (picked != null) {
+      setState(() {
+        _selectedBirthDate = picked;
+        _ageController.text = "${picked.day.toString().padLeft(2, '0')}.${picked.month.toString().padLeft(2, '0')}.${picked.year}";
+      });
+    }
+  }
+
   void _register() async {
-    if (_firstNameController.text.isEmpty || _lastNameController.text.isEmpty || _phoneController.text.isEmpty || _passwordController.text.isEmpty) {
+    if (_firstNameController.text.isEmpty || _lastNameController.text.isEmpty || _phoneController.text.isEmpty || _passwordController.text.isEmpty || _selectedBirthDate == null) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Lütfen zorunlu alanları doldurun.')));
+        return;
+    }
+
+    final today = DateTime.now();
+    DateTime adultDate = DateTime(_selectedBirthDate!.year + 18, _selectedBirthDate!.month, _selectedBirthDate!.day);
+    if (today.isBefore(adultDate)) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Kayıt olabilmek için en az 18 yaşında olmalısınız.')));
         return;
     }
 
@@ -75,6 +99,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       lastName: _lastNameController.text,
       phone: _phoneController.text,
       password: _passwordController.text,
+      birthDate: "${_selectedBirthDate!.year}-${_selectedBirthDate!.month.toString().padLeft(2, '0')}-${_selectedBirthDate!.day.toString().padLeft(2, '0')}",
       tcKimlikNo: _tcController.text,
       companyName: _companyController.text,
       taxNo: _taxNoController.text,
@@ -133,6 +158,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ),
             const SizedBox(height: 16),
             TextField(controller: _phoneController, maxLength: 11, decoration: const InputDecoration(labelText: 'Telefon Numarası', border: OutlineInputBorder(), counterText: ''), keyboardType: TextInputType.phone),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _ageController,
+              readOnly: true,
+              onTap: _selectBirthDate,
+              decoration: const InputDecoration(
+                labelText: 'Doğum Tarihi',
+                border: OutlineInputBorder(),
+                suffixIcon: Icon(Icons.calendar_today),
+              ),
+            ),
             const SizedBox(height: 16),
             TextField(controller: _passwordController, maxLength: 20, decoration: const InputDecoration(labelText: 'Şifre', border: OutlineInputBorder(), counterText: ''), obscureText: true),
             const SizedBox(height: 24),

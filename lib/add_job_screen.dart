@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'job_service.dart';
 
 class AddJobScreen extends StatefulWidget {
@@ -19,13 +20,55 @@ class _AddJobScreenState extends State<AddJobScreen> {
 
   bool _isLoading = false;
 
+  final List<String> _jobTypes = [
+    'Barista',
+    'Bulaşıkçı',
+    'Garson',
+    'Kasiyer',
+    'Komi',
+    'Kurye',
+    'Meydancı',
+    'Temizlik Görevlisi',
+    'Vale'
+  ];
+
+  String? _selectedDistrict;
+
+  final List<String> _ankaraDistricts = [
+    'Akyurt', 'Altındağ', 'Ayaş', 'Bala', 'Beypazarı', 'Çamlıdere', 'Çankaya', 
+    'Çubuk', 'Elmadağ', 'Etimesgut', 'Evren', 'Gölbaşı', 'Güdül', 'Haymana', 
+    'Kahramankazan', 'Kalecik', 'Keçiören', 'Kızılcahamam', 'Mamak', 'Nallıhan', 
+    'Polatlı', 'Pursaklar', 'Sincan', 'Şereflikoçhisar', 'Yenimahalle'
+  ];
+
   void _publishJob() async {
+    if (_titleController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Lütfen bir İlan Türü seçin'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+    
+    if (_selectedDistrict == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Lütfen bir İlçe seçin'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+    
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
       
+      final fullLocation = "Ankara, $_selectedDistrict, ${_locationController.text}";
       final result = await JobService.addJob(
         title: _titleController.text,
-        location: _locationController.text,
+        location: fullLocation,
         workingHours: _hoursController.text,
         wage: _priceController.text,
         description: _descController.text,
@@ -79,6 +122,115 @@ class _AddJobScreenState extends State<AddJobScreen> {
     }
   }
 
+  void _pickTimeRange() {
+    TimeOfDay selectedStart = const TimeOfDay(hour: 9, minute: 0);
+    TimeOfDay selectedEnd = const TimeOfDay(hour: 18, minute: 0);
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (BuildContext context) {
+        return Container(
+          height: 380,
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(32),
+              topRight: Radius.circular(32),
+            ),
+            boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, spreadRadius: 5)],
+          ),
+          child: Column(
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 12),
+                width: 50,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.all(20.0),
+                child: Text('Çalışma Saatlerini Belirleyin',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF0A49A6))),
+              ),
+              Expanded(
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        children: [
+                          const Text('Başlangıç', style: TextStyle(fontWeight: FontWeight.w600, color: Colors.black54)),
+                          Expanded(
+                            child: CupertinoDatePicker(
+                              mode: CupertinoDatePickerMode.time,
+                              use24hFormat: true,
+                              initialDateTime: DateTime(2023, 1, 1, 9, 0),
+                              onDateTimeChanged: (DateTime newDateTime) {
+                                selectedStart = TimeOfDay(hour: newDateTime.hour, minute: newDateTime.minute);
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.only(top: 24.0),
+                      child: Icon(Icons.arrow_forward_ios, color: Colors.grey, size: 16),
+                    ),
+                    Expanded(
+                      child: Column(
+                        children: [
+                          const Text('Bitiş', style: TextStyle(fontWeight: FontWeight.w600, color: Colors.black54)),
+                          Expanded(
+                            child: CupertinoDatePicker(
+                              mode: CupertinoDatePickerMode.time,
+                              use24hFormat: true,
+                              initialDateTime: DateTime(2023, 1, 1, 18, 0),
+                              onDateTimeChanged: (DateTime newDateTime) {
+                                selectedEnd = TimeOfDay(hour: newDateTime.hour, minute: newDateTime.minute);
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0A49A6),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      elevation: 0,
+                    ),
+                    onPressed: () {
+                      final startStr = '${selectedStart.hour.toString().padLeft(2, '0')}:${selectedStart.minute.toString().padLeft(2, '0')}';
+                      final endStr = '${selectedEnd.hour.toString().padLeft(2, '0')}:${selectedEnd.minute.toString().padLeft(2, '0')}';
+                      setState(() {
+                        _hoursController.text = "$startStr - $endStr";
+                      });
+                      Navigator.pop(context);
+                    },
+                    child: const Text('Saatleri Kaydet', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -86,7 +238,7 @@ class _AddJobScreenState extends State<AddJobScreen> {
       appBar: AppBar(
         title: const Text('Yeni İlan Oluştur', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF4A148C),
+        foregroundColor: const Color(0xFF0A49A6),
         elevation: 0,
       ),
       body: SingleChildScrollView(
@@ -96,17 +248,83 @@ class _AddJobScreenState extends State<AddJobScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _buildSectionTitle('Temel Bilgiler'),
-              _buildModernTextField(
-                controller: _titleController,
-                label: 'İlan Başlığı (Örn: Garson, Komi vb.)',
-                icon: Icons.work_outline,
-                validator: (val) => val!.isEmpty ? 'Lütfen başlık girin' : null,
+              _buildSectionTitle('İlan Türü Seçin'),
+              const SizedBox(height: 8),
+              InkWell(
+                onTap: () async {
+                  await _showSingleSelectDropdown(
+                    context, 
+                    'İlan Türü', 
+                    _jobTypes, 
+                    _titleController.text, 
+                    (newSelected) {
+                      setState(() => _titleController.text = newSelected ?? '');
+                    }
+                  );
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: Border.all(color: Colors.grey.shade300),
+                    borderRadius: BorderRadius.circular(16)
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        _titleController.text.isEmpty ? 'İlan Türü Seçin' : _titleController.text,
+                        style: TextStyle(
+                          color: _titleController.text.isEmpty ? Colors.grey.shade600 : Colors.black87,
+                          fontSize: 16
+                        )
+                      ),
+                      const Icon(Icons.arrow_drop_down, color: Colors.black54),
+                    ]
+                  )
+                )
               ),
               const SizedBox(height: 16),
+              _buildSectionTitle('Konum Bilgileri'),
+              const SizedBox(height: 8),
+              InkWell(
+                onTap: () async {
+                  await _showSingleSelectDropdown(
+                    context, 
+                    'İlçe', 
+                    _ankaraDistricts, 
+                    _selectedDistrict, 
+                    (newSelected) {
+                      setState(() => _selectedDistrict = newSelected);
+                    }
+                  );
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: Border.all(color: Colors.grey.shade300),
+                    borderRadius: BorderRadius.circular(16)
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        _selectedDistrict == null ? 'İl: Ankara, İlçe Seçin' : 'Ankara, $_selectedDistrict', 
+                        style: TextStyle(
+                          color: _selectedDistrict == null ? Colors.grey.shade600 : const Color(0xFF0A49A6),
+                          fontSize: 16,
+                          fontWeight: _selectedDistrict == null ? FontWeight.normal : FontWeight.bold
+                        )
+                      ),
+                      const Icon(Icons.arrow_drop_down, color: Colors.black54),
+                    ]
+                  )
+                )
+              ),
               _buildModernTextField(
                 controller: _locationController,
-                label: 'Çalışma Yeri / Şube (Örn: Mado Kızılay)',
+                label: 'Açık Adres / Şube Adı (Örn: Mado Kızılay)',
                 icon: Icons.location_on_outlined,
                 validator: (val) => val!.isEmpty ? 'Lütfen konum belirtin' : null,
               ),
@@ -126,6 +344,8 @@ class _AddJobScreenState extends State<AddJobScreen> {
                 controller: _hoursController,
                 label: 'Çalışma Saatleri (Örn: 09:00 - 18:00)',
                 icon: Icons.access_time,
+                readOnly: true,
+                onTap: _pickTimeRange,
                 validator: (val) => val!.isEmpty ? 'Saatleri belirtin' : null,
               ),
               const SizedBox(height: 16),
@@ -151,14 +371,14 @@ class _AddJobScreenState extends State<AddJobScreen> {
                   : ElevatedButton(
                       onPressed: _publishJob,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF4A148C),
+                        backgroundColor: const Color(0xFF0A49A6),
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 18),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
                         ),
                         elevation: 4,
-                        shadowColor: const Color(0xFF4A148C).withOpacity(0.5),
+                        shadowColor: const Color(0xFF0A49A6).withOpacity(0.5),
                       ),
                       child: const Text('İlanı Yayınla', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                     ),
@@ -216,9 +436,9 @@ class _AddJobScreenState extends State<AddJobScreen> {
         decoration: InputDecoration(
           labelText: label,
           labelStyle: TextStyle(color: Colors.grey.shade600),
-          prefixIcon: maxLines == 1 ? Icon(icon, color: const Color(0xFF4A148C).withOpacity(0.6)) : Padding(
+          prefixIcon: maxLines == 1 ? Icon(icon, color: const Color(0xFF0A49A6).withOpacity(0.6)) : Padding(
             padding: const EdgeInsets.only(bottom: 50.0),
-            child: Icon(icon, color: const Color(0xFF4A148C).withOpacity(0.6)),
+            child: Icon(icon, color: const Color(0xFF0A49A6).withOpacity(0.6)),
           ),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
@@ -229,6 +449,68 @@ class _AddJobScreenState extends State<AddJobScreen> {
           contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         ),
       ),
+    );
+  }
+
+  Future<void> _showSingleSelectDropdown(
+    BuildContext context, 
+    String title, 
+    List<String> items, 
+    String? selectedItem,
+    Function(String?) onChanged
+  ) async {
+    String searchQuery = '';
+    String? localSelected = selectedItem;
+    
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setStateSB) {
+            final filteredItems = items.where((item) => item.toLowerCase().contains(searchQuery.toLowerCase())).toList();
+            return Dialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              child: Container(
+                constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.6),
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    TextField(
+                      decoration: InputDecoration(
+                        hintText: '$title Ara',
+                        prefixIcon: const Icon(Icons.search),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        contentPadding: const EdgeInsets.symmetric(vertical: 0)
+                      ),
+                      onChanged: (val) => setStateSB(() => searchQuery = val),
+                    ),
+                    const SizedBox(height: 12),
+                    Expanded(
+                      child: ListView.builder(
+                        itemCount: filteredItems.length,
+                        itemBuilder: (context, index) {
+                          final item = filteredItems[index];
+                          return RadioListTile<String>(
+                            contentPadding: EdgeInsets.zero,
+                            title: Text(item),
+                            value: item,
+                            groupValue: localSelected,
+                            onChanged: (val) {
+                              setStateSB(() => localSelected = val);
+                              onChanged(val);
+                              Navigator.pop(context);
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ]
+                )
+              )
+            );
+          }
+        );
+      }
     );
   }
 }

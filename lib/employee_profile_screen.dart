@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import 'auth_service.dart';
 
-class EmployeeProfileScreen extends StatelessWidget {
+class EmployeeProfileScreen extends StatefulWidget {
   final String firstName;
   final String lastName;
   final String phone;
@@ -13,19 +14,55 @@ class EmployeeProfileScreen extends StatelessWidget {
   });
 
   @override
+  State<EmployeeProfileScreen> createState() => _EmployeeProfileScreenState();
+}
+
+class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
+  bool _isLoading = true;
+  double _averageRating = 0.0;
+  int _jobCount = 0;
+  List<dynamic> _recentJobs = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchProfileData();
+  }
+
+  Future<void> _fetchProfileData() async {
+    final stats = await AuthService.getUserProfileStats(widget.phone, 'Employee');
+    if (mounted) {
+      setState(() {
+        _jobCount = stats['job_count'] ?? 0;
+        final rating = stats['average_rating'];
+        if (rating is int) {
+           _averageRating = rating.toDouble();
+        } else if (rating is double) {
+           _averageRating = rating;
+        }
+        if (stats['recent_jobs'] != null && stats['recent_jobs'] is List) {
+           _recentJobs = stats['recent_jobs'];
+        }
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    // Profil fotoğrafı için baş harflerden oluşan bir Avatar arkaplan rengi belirleyelim
-    final initials = '${firstName.isNotEmpty ? firstName[0] : ''}${lastName.isNotEmpty ? lastName[0] : ''}'.toUpperCase();
+    final initials = '${widget.firstName.isNotEmpty ? widget.firstName[0] : ''}${widget.lastName.isNotEmpty ? widget.lastName[0] : ''}'.toUpperCase();
 
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
         title: const Text('Çalışan Profili', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF4A148C),
+        foregroundColor: const Color(0xFF0A49A6),
         elevation: 0,
       ),
-      body: SingleChildScrollView(
+      body: _isLoading 
+        ? const Center(child: CircularProgressIndicator(color: Color(0xFF0A49A6)))
+        : SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           children: [
@@ -33,24 +70,24 @@ class EmployeeProfileScreen extends StatelessWidget {
             Center(
               child: CircleAvatar(
                 radius: 60,
-                backgroundColor: const Color(0xFF4A148C).withOpacity(0.1),
+                backgroundColor: const Color(0xFF0A49A6).withOpacity(0.1),
                 child: Text(
                   initials,
                   style: const TextStyle(
                     fontSize: 40,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF4A148C),
+                    color: Color(0xFF0A49A6),
                   ),
                 ),
               ),
             ),
             const SizedBox(height: 20),
             Text(
-              '$firstName $lastName',
+              '${widget.firstName} ${widget.lastName}',
               style: const TextStyle(
                 fontSize: 28,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF4A148C),
+                color: Color(0xFF0A49A6),
               ),
             ),
             const SizedBox(height: 8),
@@ -80,46 +117,82 @@ class EmployeeProfileScreen extends StatelessWidget {
             _buildProfileInfoCard(
               icon: Icons.phone_android,
               title: 'İletişim Numarası',
-              value: phone,
+              value: widget.phone,
             ),
             const SizedBox(height: 16),
             
             _buildProfileInfoCard(
               icon: Icons.star_rounded,
               title: 'Ortalama Puan',
-              value: 'Henüz değerlendirme yok',
-              valueColor: Colors.grey.shade600,
+              value: _averageRating > 0 ? '${_averageRating.toStringAsFixed(1)} / 5.0' : 'Henüz değerlendirme yok',
+              valueColor: _averageRating > 0 ? Colors.amber.shade700 : Colors.grey.shade600,
             ),
             const SizedBox(height: 16),
             
             _buildProfileInfoCard(
               icon: Icons.work_history,
               title: 'Tamamlanan İş',
-              value: 'Veriler hesaplanıyor...',
-              valueColor: Colors.grey.shade600,
+              value: '$_jobCount',
+              valueColor: Colors.black87,
             ),
             
             const SizedBox(height: 40),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.blue.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.blue.withOpacity(0.3)),
+            
+            if (_recentJobs.isNotEmpty) ...[
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Yorumlar ve Değerlendirmeler',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0A49A6)),
+                ),
               ),
-              child: Row(
-                children: [
-                  Icon(Icons.info_outline, color: Colors.blue.shade700),
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: Text(
-                      'Bu profil çalışanın genel performansını ve iletişim bilgilerini gösterir. Daha detaylı veriler için işi tamamlamanız gerekmektedir.',
-                      style: TextStyle(height: 1.4, color: Colors.black87),
-                    ),
+              const SizedBox(height: 12),
+              ..._recentJobs.where((j) => (j['rating'] != null && j['rating'] > 0) || (j['comment'] != null && j['comment'].isNotEmpty)).map((job) {
+                return Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: Border.all(color: Colors.grey.shade200),
+                    borderRadius: BorderRadius.circular(16),
                   ),
-                ],
-              ),
-            ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              job['title'].toString(),
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                            ),
+                          ),
+                          if (job['rating'] != null && job['rating'] > 0)
+                            Row(
+                              children: [
+                                const Icon(Icons.star, color: Colors.amber, size: 16),
+                                const SizedBox(width: 4),
+                                Text(
+                                  job['rating'].toString(),
+                                  style: const TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                        ],
+                      ),
+                      if (job['comment'] != null && job['comment'].toString().isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          '"${job['comment']}"',
+                          style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey.shade700),
+                        ),
+                      ]
+                    ],
+                  ),
+                );
+              }).toList(),
+            ],
           ],
         ),
       ),
@@ -150,10 +223,10 @@ class EmployeeProfileScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFF4A148C).withOpacity(0.1),
+              color: const Color(0xFF0A49A6).withOpacity(0.1),
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, color: const Color(0xFF4A148C)),
+            child: Icon(icon, color: const Color(0xFF0A49A6)),
           ),
           const SizedBox(width: 16),
           Expanded(

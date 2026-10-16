@@ -72,6 +72,6 @@ try {
         echo json_encode(["status" => "error", "message" => "Geçersiz işlem."]);
     }
 } catch (Exception $e) {
-    echo json_encode(["status" => "error", "message" => "İşlem sırasında hata oluştu: " . $e->getMessage()]);
+    echo json_encode(["status" => "error", "message" => "İşlem gerçekleştirilemedi. Lütfen tekrar deneyin."]);
 }
 ?>

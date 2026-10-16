@@ -1,12 +1,11 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter_speed_dial/flutter_speed_dial.dart';
 import 'auth_service.dart';
 import 'login_screen.dart';
-import 'qr_scan_screen.dart';
-import 'qr_generate_screen.dart';
 import 'add_job_screen.dart';
 import 'jobs_list_screen.dart';
 import 'applications_screen.dart';
+import 'edit_profile_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final String role;
@@ -19,6 +18,28 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
   int _activeFilterIndex = 0; // Üst kısımdaki yatay menü için ('İlanlar', 'Geçmiş İşlerim' vs.)
+  int _listUpdateKey = 0;
+
+  final List<String> _jobTypes = [
+    'Barista',
+    'Bulaşıkçı',
+    'Garson',
+    'Kasiyer',
+    'Komi',
+    'Kurye',
+    'Meydancı',
+    'Temizlik Görevlisi',
+    'Vale'
+  ];
+  Set<String> _selectedJobFilters = {};
+
+  final List<String> _ankaraDistricts = [
+    'Akyurt', 'Altındağ', 'Ayaş', 'Bala', 'Beypazarı', 'Çamlıdere', 'Çankaya', 
+    'Çubuk', 'Elmadağ', 'Etimesgut', 'Evren', 'Gölbaşı', 'Güdül', 'Haymana', 
+    'Kahramankazan', 'Kalecik', 'Keçiören', 'Kızılcahamam', 'Mamak', 'Nallıhan', 
+    'Polatlı', 'Pursaklar', 'Sincan', 'Şereflikoçhisar', 'Yenimahalle'
+  ];
+  Set<String> _selectedLocationFilters = {};
   
   String _firstName = "Yükleniyor...";
   String _lastName = "";
@@ -33,11 +54,24 @@ class _HomeScreenState extends State<HomeScreen> {
   String _lastJobTitle = "İşlem geçmişi bulunmuyor";
   String _lastJobSubtitle = "-";
   double _lastJobRating = 0.0;
+  
+  String _userPhone = "";
+
+  Timer? _pollingTimer;
 
   @override
   void initState() {
     super.initState();
     _loadUserData();
+    _pollingTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      _loadUserData(); // loadUserData zaten sessiz çalışıyor, arayüzü bozmuyor
+    });
+  }
+
+  @override
+  void dispose() {
+    _pollingTimer?.cancel();
+    super.dispose();
   }
 
   void _loadUserData() async {
@@ -50,12 +84,56 @@ class _HomeScreenState extends State<HomeScreen> {
         _tcKimlikNo = userData['tc_kimlik_no'] ?? "";
       });
     }
+
+    // Backend'den Cüzdan, İlan Sayısı gibi verileri çek
+    final String phone = userData['phone'] ?? "";
+    if (phone.isNotEmpty) {
+      if (mounted) setState(() => _userPhone = phone);
+      final stats = await AuthService.getUserProfileStats(phone, widget.role);
+      if (mounted) {
+        setState(() {
+          _jobCount = stats['job_count'] ?? 0;
+          
+          final wallet = stats['wallet_balance'];
+          if (wallet is int) {
+             _walletBalance = wallet.toDouble();
+          } else if (wallet is double) {
+             _walletBalance = wallet;
+          } else if (wallet is String) {
+             _walletBalance = double.tryParse(wallet) ?? 0.0;
+          }
+          
+          final rating = stats['average_rating'];
+          if (rating is int) {
+             _averageRating = rating.toDouble();
+          } else if (rating is double) {
+             _averageRating = rating;
+          }
+          
+          final recentJobs = stats['recent_jobs'];
+          if (recentJobs != null && recentJobs is List && recentJobs.isNotEmpty) {
+             final job = recentJobs[0];
+             _lastJobTitle = job['title']?.toString() ?? '-';
+             _lastJobSubtitle = job['subtitle']?.toString() ?? '-';
+             final r = job['rating'];
+             if (r is int) _lastJobRating = r.toDouble();
+             else if (r is double) _lastJobRating = r;
+          } else {
+             _lastJobTitle = "İşlem geçmişi bulunmuyor";
+             _lastJobSubtitle = "-";
+             _lastJobRating = 0.0;
+          }
+        });
+      }
+    }
   }
 
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
     });
+    // Her profil sekmesine geçişte veya ana sekmeye geçişte bakiyeyi vs. yenile
+    _loadUserData();
   }
 
   @override
@@ -66,146 +144,65 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       body: SafeArea(
-        child: Column(
+        child: Stack(
           children: [
-            if (_selectedIndex == 0)
-              Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 4.0),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.grey.shade300),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.02),
-                                  blurRadius: 4,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: const TextField(
-                              decoration: InputDecoration(
-                                hintText: 'Ara...',
-                                hintStyle: TextStyle(color: Colors.grey),
-                                prefixIcon: Icon(
-                                  Icons.search,
-                                  color: Colors.grey,
-                                ),
-                                border: InputBorder.none,
-                                contentPadding: EdgeInsets.symmetric(
-                                  vertical: 14.0,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF4A148C),
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFF4A148C).withOpacity(0.2),
-                                blurRadius: 4,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: IconButton(
-                            icon: const Icon(Icons.tune, color: Colors.white),
-                            onPressed: () {
-                              // Filtreleme işlemi buraya eklenebilir
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16.0,
-                      vertical: 12.0,
-                    ),
-                    child: Row(
-                      children: [
-                        _buildTopFilterButton(
-                          isEmployer ? 'İlanlarım' : 'İlanlar',
-                          _activeFilterIndex == 0,
-                          onTap: () {
-                            setState(() => _activeFilterIndex = 0);
-                          },
-                        ),
-                        const SizedBox(width: 8),
-                        _buildTopFilterButton(
-                          isEmployer ? 'İlan Ekle' : 'Başvurularım',
-                          _activeFilterIndex == 1,
-                          onTap: () async {
-                            if (isEmployer) {
-                              final result = await Navigator.push(
-                                context,
-                                MaterialPageRoute(builder: (_) => const AddJobScreen()),
-                              );
-                              if (result == true) {
-                                setState(() => _activeFilterIndex = 0);
-                              }
-                            } else {
-                              setState(() => _activeFilterIndex = 1);
-                            }
-                          },
-                        ),
-                        const SizedBox(width: 8),
-                        _buildTopFilterButton(
-                          isEmployer ? 'Geçmiş İlanlarım' : 'Geçmiş İşlerim',
-                          _activeFilterIndex == 2,
-                          onTap: () {
-                            setState(() => _activeFilterIndex = 2);
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            Expanded(
-              child: _selectedIndex == 0
-                  ? (_activeFilterIndex == 0 
-                      ? JobsListScreen(isEmployer: isEmployer) // İlanlar / İlanlarım (Başvuruları kendi içinde görecek)
-                      : _activeFilterIndex == 1 && !isEmployer
-                          ? ApplicationsScreen(isEmployer: isEmployer) // Başvurularım (Çalışan)
-                      : _activeFilterIndex == 2 && isEmployer
-                          ? Center(child: Text("Geçmiş ilanlarınız bulunmuyor.")) // Geçmiş İlanlarım (İşveren)
-                      : _activeFilterIndex == 2 && !isEmployer
-                          ? ApplicationsScreen(isEmployer: isEmployer, isHistory: true) // Geçmiş İşlerim (Çalışan)
-                      : Center(
-                          child: Column(
+            Column(
+              children: [
+                if (_selectedIndex == 0)
+                  Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(top: 16.0, bottom: 8.0),
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(
-                                isEmployer ? Icons.history : Icons.assignment_turned_in,
-                                size: 64,
-                                color: Theme.of(context).colorScheme.primary.withOpacity(0.5),
+                              _buildTopFilterButton(
+                                isEmployer ? 'İlanlarım' : 'İlanlar',
+                                _activeFilterIndex == 0,
+                                onTap: () {
+                                  setState(() => _activeFilterIndex = 0);
+                                },
                               ),
-                              const SizedBox(height: 16),
-                              Text(
-                                "Yapım Aşamasında",
-                                style: TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.grey.shade800,
-                                ),
+                              const SizedBox(width: 24),
+                              Container(
+                                width: 1,
+                                height: 20,
+                                color: Colors.grey.shade400,
+                              ),
+                              const SizedBox(width: 24),
+                              _buildTopFilterButton(
+                                isEmployer ? 'Geçmiş İlanlarım' : 'Geçmiş İşlerim',
+                                _activeFilterIndex == 1,
+                                onTap: () {
+                                  setState(() => _activeFilterIndex = 1);
+                                },
                               ),
                             ],
                           ),
-                        ))
-                  : SingleChildScrollView(
+                        ),
+                      ),
+                      Divider(
+                        color: Colors.grey.shade300,
+                        indent: 32,
+                        endIndent: 32,
+                        thickness: 1,
+                        height: 20,
+                      ),
+                    ],
+                  ),
+                Expanded(
+                  child: _selectedIndex == 0
+                  ? (_activeFilterIndex == 0 
+                      ? JobsListScreen(key: ValueKey('jobs_$_listUpdateKey'), isEmployer: isEmployer, jobFilters: _selectedJobFilters, locationFilters: _selectedLocationFilters)
+                      : isEmployer
+                          ? JobsListScreen(key: ValueKey('jobs_hist_$_listUpdateKey'), isEmployer: true, isHistory: true, jobFilters: _selectedJobFilters, locationFilters: _selectedLocationFilters)
+                          : ApplicationsScreen(key: ValueKey('apps_hist_$_listUpdateKey'), isEmployer: false, isHistory: true))
+                  : (!isEmployer && _selectedIndex == 1)
+                      ? ApplicationsScreen(key: ValueKey('apps_$_listUpdateKey'), isEmployer: false)
+                  : SingleChildScrollView( // _selectedIndex == 1 (İşveren) veya _selectedIndex == 2 (Çalışan) -> Profil
+
                       padding: const EdgeInsets.all(24.0),
                       child: Column(
                         children: [
@@ -476,7 +473,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                       onPressed: () {},
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: const Color(
-                                          0xFF4A148C,
+                                          0xFF0A49A6,
                                         ),
                                         foregroundColor: Colors.white,
                                         minimumSize: Size.zero,
@@ -588,8 +585,19 @@ class _HomeScreenState extends State<HomeScreen> {
                           SizedBox(
                             width: double.infinity,
                             child: OutlinedButton.icon(
-                              onPressed: () {
-                                // Profil düzenleme sayfasına yönlendirme yapılacak
+                              onPressed: () async {
+                                final newPhone = await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => EditProfileScreen(
+                                      userPhone: _userPhone,
+                                      role: widget.role,
+                                    ),
+                                  ),
+                                );
+                                if (newPhone != null) {
+                                  _loadUserData(); // Return received, fetch updated details
+                                }
                               },
                               icon: const Icon(Icons.edit, size: 18),
                               label: const Text(
@@ -597,9 +605,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                 style: TextStyle(fontSize: 16),
                               ),
                               style: OutlinedButton.styleFrom(
-                                foregroundColor: const Color(0xFF4A148C),
+                                foregroundColor: const Color(0xFF0A49A6),
                                 side: const BorderSide(
-                                  color: Color(0xFF4A148C),
+                                  color: Color(0xFF0A49A6),
                                 ),
                                 padding: const EdgeInsets.symmetric(
                                   vertical: 16,
@@ -614,52 +622,59 @@ class _HomeScreenState extends State<HomeScreen> {
                         ],
                       ),
                     ),
+                ),
+              ],
             ),
+            if (_selectedIndex == 0)
+            Positioned(
+              bottom: 16,
+              right: 16,
+              child: Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0A49A6),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF0A49A6).withOpacity(0.4),
+                        blurRadius: 8,
+                        spreadRadius: 2,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: IconButton(
+                    padding: const EdgeInsets.all(12),
+                    iconSize: 28,
+                    icon: const Icon(Icons.tune, color: Colors.white),
+                    onPressed: _showFilterBottomSheet,
+                  ),
+                ),
+              ),
           ],
         ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      floatingActionButton: SpeedDial(
-        icon: Icons.qr_code_2,
-        activeIcon: Icons.close,
-        buttonSize: const Size(68, 68),
-        iconTheme: const IconThemeData(size: 32),
-        backgroundColor: const Color(0xFF4A148C),
-        foregroundColor: Colors.white,
-        spacing: 3,
-        childPadding: const EdgeInsets.all(5),
-        spaceBetweenChildren: 4,
-        tooltip: 'QR Menü',
-        elevation: 8.0,
-        shape: const CircleBorder(),
-        children: [
-          SpeedDialChild(
-            child: const Icon(Icons.qr_code_scanner),
-            backgroundColor: Colors.blue,
-            foregroundColor: Colors.white,
-            label: 'QR Okut',
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const QRScanScreen()),
-              );
-            },
-          ),
-          SpeedDialChild(
-            child: const Icon(Icons.qr_code_2),
-            backgroundColor: Colors.green,
-            foregroundColor: Colors.white,
-            label: 'QR Açma',
-            onTap: () {
-              final String uniqueData = 'Kayıt-${DateTime.now().millisecondsSinceEpoch}';
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => QRGenerateScreen(qrData: uniqueData)),
-              );
-            },
-          ),
-        ],
-      ),
+      floatingActionButton: isEmployer
+          ? FloatingActionButton(
+              onPressed: () async {
+                final result = await Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AddJobScreen()),
+                );
+                _loadUserData();
+                if (result == true) {
+                  setState(() {
+                    _listUpdateKey++;
+                  });
+                }
+              },
+              backgroundColor: const Color(0xFF0A49A6),
+              foregroundColor: Colors.white,
+              elevation: 4,
+              shape: const CircleBorder(),
+              child: const Icon(Icons.add, size: 36),
+            )
+          : null,
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           boxShadow: [
@@ -695,9 +710,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     isEmployer ? 'İlanlarım' : 'İlanlar',
                   ),
                 ),
-                const SizedBox(width: 48), // FAB Ortası Boşluğu
+                if (isEmployer) const SizedBox(width: 48), // FAB Ortası Boşluğu sadece İşveren için
+                if (!isEmployer)
+                  Expanded(
+                    child: _buildNavItem(1, Icons.assignment_turned_in, 'Başvurularım'),
+                  ),
                 Expanded(
-                  child: _buildNavItem(1, Icons.person_outline, 'Profil'),
+                  child: _buildNavItem(isEmployer ? 1 : 2, Icons.person_outline, 'Profil'),
                 ),
               ],
             ),
@@ -708,22 +727,17 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildTopFilterButton(String title, bool isActive, {VoidCallback? onTap}) {
-    return Material(
-      color: isActive
-          ? const Color(0xFF4A148C).withOpacity(0.15)
-          : const Color(0xFF4A148C).withOpacity(0.05),
-      borderRadius: BorderRadius.circular(20),
-      child: InkWell(
-        onTap: onTap ?? () {},
-        borderRadius: BorderRadius.circular(20),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-          child: Text(
-            title,
-            style: TextStyle(
-              color: isActive ? const Color(0xFF4A148C) : Colors.grey.shade700,
-              fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
-            ),
+    return InkWell(
+      onTap: onTap ?? () {},
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
+        child: Text(
+          title,
+          style: TextStyle(
+            color: isActive ? const Color(0xFF0A49A6) : Colors.grey.shade600,
+            fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
+            fontSize: 15,
           ),
         ),
       ),
@@ -743,7 +757,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildNavItem(int index, IconData icon, String label) {
     final isSelected = _selectedIndex == index;
-    final color = isSelected ? const Color(0xFF4A148C) : Colors.grey.shade600;
+    final color = isSelected ? const Color(0xFF0A49A6) : Colors.grey.shade600;
 
     return InkWell(
       onTap: () => _onItemTapped(index),
@@ -769,4 +783,220 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+
+  void _showFilterBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setStateSB) {
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.7,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.only(topLeft: Radius.circular(32), topRight: Radius.circular(32)),
+              ),
+              child: Column(
+                children: [
+                  const SizedBox(height: 12),
+                  Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(10))),
+                  const SizedBox(height: 20),
+                  const Text('Filtrele', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF0A49A6))),
+                  const SizedBox(height: 10),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 10),
+                          const Text('Meslekler', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87)),
+                          const SizedBox(height: 12),
+                          InkWell(
+                            onTap: () async {
+                              await _showMultiSelectDropdown(
+                                context, 
+                                'Meslek', 
+                                _jobTypes, 
+                                _selectedJobFilters, 
+                                (newSelected) {
+                                  setStateSB(() => _selectedJobFilters = newSelected);
+                                  setState(() => _listUpdateKey++);
+                                }
+                              );
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade50,
+                                border: Border.all(color: Colors.grey.shade300),
+                                borderRadius: BorderRadius.circular(12)
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    _selectedJobFilters.isEmpty 
+                                        ? 'Meslek Seçin' 
+                                        : '${_selectedJobFilters.length} Meslek Seçildi',
+                                    style: TextStyle(
+                                      color: _selectedJobFilters.isEmpty ? Colors.black54 : Colors.black87,
+                                      fontWeight: _selectedJobFilters.isEmpty ? FontWeight.normal : FontWeight.bold
+                                    )
+                                  ),
+                                  const Icon(Icons.arrow_drop_down, color: Colors.black54),
+                                ]
+                              )
+                            )
+                          ),
+                          const SizedBox(height: 32),
+                          const Text('Ankara İlçeleri', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87)),
+                          const SizedBox(height: 12),
+                          InkWell(
+                            onTap: () async {
+                              await _showMultiSelectDropdown(
+                                context, 
+                                'İlçe', 
+                                _ankaraDistricts, 
+                                _selectedLocationFilters, 
+                                (newSelected) {
+                                  setStateSB(() => _selectedLocationFilters = newSelected);
+                                  setState(() => _listUpdateKey++);
+                                }
+                              );
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade50,
+                                border: Border.all(color: Colors.grey.shade300),
+                                borderRadius: BorderRadius.circular(12)
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    _selectedLocationFilters.isEmpty 
+                                        ? 'İlçe Seçin' 
+                                        : '${_selectedLocationFilters.length} İlçe Seçildi',
+                                    style: TextStyle(
+                                      color: _selectedLocationFilters.isEmpty ? Colors.black54 : Colors.black87,
+                                      fontWeight: _selectedLocationFilters.isEmpty ? FontWeight.normal : FontWeight.bold
+                                    )
+                                  ),
+                                  const Icon(Icons.arrow_drop_down, color: Colors.black54),
+                                ]
+                              )
+                            )
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF0A49A6),
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        ),
+                        onPressed: () {
+                          Navigator.pop(context);
+                        },
+                        child: const Text('Sonuçları Göster', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+                      ),
+                    ),
+                  )
+                ],
+              ),
+            );
+          }
+        );
+      }
+    );
+  }
+
+  Future<void> _showMultiSelectDropdown(
+    BuildContext context, 
+    String title, 
+    List<String> items, 
+    Set<String> selectedItems,
+    Function(Set<String>) onChanged
+  ) async {
+    String searchQuery = '';
+    Set<String> localSelected = Set.from(selectedItems);
+    
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setStateSB) {
+            final filteredItems = items.where((item) => item.toLowerCase().contains(searchQuery.toLowerCase())).toList();
+            return Dialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              child: Container(
+                constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.6),
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    TextField(
+                      decoration: InputDecoration(
+                        hintText: '$title Ara',
+                        prefixIcon: const Icon(Icons.search),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        contentPadding: const EdgeInsets.symmetric(vertical: 0)
+                      ),
+                      onChanged: (val) => setStateSB(() => searchQuery = val),
+                    ),
+                    const SizedBox(height: 12),
+                    Expanded(
+                      child: ListView.builder(
+                        itemCount: filteredItems.length,
+                        itemBuilder: (context, index) {
+                          final item = filteredItems[index];
+                          return CheckboxListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: Text(item),
+                            value: localSelected.contains(item),
+                            onChanged: (val) {
+                              setStateSB(() {
+                                if (val == true) localSelected.add(item);
+                                else localSelected.remove(item);
+                              });
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF0A49A6),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        onPressed: () {
+                          onChanged(localSelected);
+                          Navigator.pop(context);
+                        },
+                        child: const Text('Seçimleri Onayla', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      )
+                    )
+                  ]
+                )
+              )
+            );
+          }
+        );
+      }
+    );
+  }
 }
+

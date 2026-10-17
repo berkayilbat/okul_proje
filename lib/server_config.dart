@@ -46,18 +46,30 @@ class ServerConfig {
     } catch (_) {}
   }
 
+  static String? lastTestError;
+
   /// Belirtilen host veya aktif host için bağlantı testi yapar
   static Future<bool> testConnection([String? hostToTest]) async {
+    lastTestError = null;
     final host = (hostToTest != null && hostToTest.trim().isNotEmpty) ? hostToTest.trim() : activeHost;
-    if (host.isEmpty) return false;
+    if (host.isEmpty) {
+      lastTestError = 'Host adresi boş';
+      return false;
+    }
 
     try {
       final url = Uri.parse('http://$host/backend/ping.php');
-      final res = await http.get(url).timeout(const Duration(seconds: 3));
+      final res = await http.get(url).timeout(const Duration(seconds: 4));
       if (res.statusCode == 200 && res.body.contains('my_app')) {
         return true;
+      } else {
+        lastTestError = 'HTTP ${res.statusCode}: ${res.body.trim().isEmpty ? "Boş yanıt" : res.body.trim()}';
+        return false;
       }
-    } catch (_) {}
-    return false;
+    } catch (e) {
+      lastTestError = e.toString();
+      debugPrint('testConnection error ($host): $e');
+      return false;
+    }
   }
 }

@@ -159,7 +159,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                     testResult = '✅ Bağlantı Başarılı!';
                                     testColor = Colors.green;
                                   } else {
-                                    testResult = '❌ Ulaşılamadı (IP veya XAMPP kontrol edin)';
+                                    testResult = '❌ ${ServerConfig.lastTestError ?? "Ulaşılamadı"}';
                                     testColor = Colors.red;
                                   }
                                 });

@@ -1,12 +1,18 @@
 class Validators {
   static bool isValidPhone(String phone) {
-    if (phone.length != 11) return false;
-    if (!phone.startsWith('0')) return false;
+    final digits = phone.replaceAll(RegExp(r'\D'), '');
 
-    // Tüm karakterlerin rakam olduğunu doğrula
-    if (int.tryParse(phone) == null) return false;
+    // 10 haneli format: örn. 5445073525 veya 1234567890 (0 ile başlamayan)
+    if (digits.length == 10 && !digits.startsWith('0')) {
+      return int.tryParse(digits) != null;
+    }
 
-    return true;
+    // 11 haneli format: örn. 05445073525 (0 ile başlayan)
+    if (digits.length == 11 && digits.startsWith('0')) {
+      return int.tryParse(digits) != null;
+    }
+
+    return false;
   }
 
   static bool isValidPassword(String password) {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'auth_service.dart';
 import 'validators.dart';
 import 'package:flutter/services.dart';
+import 'widgets/phone_input_formatter.dart';
 import 'theme/app_theme.dart';
 import 'widgets/animated_theme_toggle.dart';
 
@@ -43,7 +44,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   bool _isLoading = false;
 
-  String get _cleanPhone => _phoneController.text.replaceAll(RegExp(r'\D'), '');
+  String get _cleanPhone => PhoneInputFormatter.toDbFormat(_phoneController.text);
 
   @override
   void dispose() {
@@ -770,14 +771,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
               controller: _phoneController,
               keyboardType: TextInputType.phone,
               inputFormatters: [
-                TurkishPhoneInputFormatter(),
+                PhoneInputFormatter(),
               ],
               onChanged: (_) => setState(() {}),
               decoration: InputDecoration(
                 labelText: 'Telefon Numarası',
-                hintText: '0 (5XX) XXX XX XX',
+                hintText: '05XX XXX XX XX',
                 prefixIcon: const Icon(Icons.phone_android_outlined),
-                suffixIcon: _cleanPhone.length == 11 && Validators.isValidPhone(_cleanPhone)
+                suffixIcon: Validators.isValidPhone(_phoneController.text)
                     ? const Icon(Icons.check_circle_rounded, color: AppColors.success, size: 20)
                     : null,
                 border: const OutlineInputBorder(),
@@ -788,7 +789,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   return 'Telefon numarası zorunludur.';
                 }
                 if (!Validators.isValidPhone(_cleanPhone)) {
-                  return 'Telefon numaranız 0 ile başlamalı ve tam 11 haneli olmalıdır.';
+                  return 'Geçerli bir telefon numarası giriniz (Örn: 05XX XXX XX XX).';
                 }
                 return null;
               },
@@ -937,56 +938,5 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 }
 
-/// Türkiye Telefon Numarası Formatlayıcı: 0 (5XX) XXX XX XX
-class TurkishPhoneInputFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    String oldDigits = oldValue.text.replaceAll(RegExp(r'\D'), '');
-    String digits = newValue.text.replaceAll(RegExp(r'\D'), '');
-
-    // Kullanıcı silme tuşuna basıp format karakterini silmek istediğinde rakamı da sil
-    if (newValue.text.length < oldValue.text.length &&
-        digits == oldDigits &&
-        digits.isNotEmpty) {
-      digits = digits.substring(0, digits.length - 1);
-    }
-
-    // Kullanıcı ilk olarak 5 yazarsa otomatik başına 0 ekle
-    if (digits.isNotEmpty && !digits.startsWith('0')) {
-      digits = '0$digits';
-    }
-
-    // En fazla 11 hane (0 + 10 hane)
-    if (digits.length > 11) {
-      digits = digits.substring(0, 11);
-    }
-
-    if (digits.isEmpty) {
-      return const TextEditingValue(
-        text: '',
-        selection: TextSelection.collapsed(offset: 0),
-      );
-    }
-
-    final buffer = StringBuffer();
-    for (int i = 0; i < digits.length; i++) {
-      if (i == 1) {
-        buffer.write(' (');
-      } else if (i == 4) {
-        buffer.write(') ');
-      } else if (i == 7 || i == 9) {
-        buffer.write(' ');
-      }
-      buffer.write(digits[i]);
-    }
-
-    final formatted = buffer.toString();
-    return TextEditingValue(
-      text: formatted,
-      selection: TextSelection.collapsed(offset: formatted.length),
-    );
-  }
-}
+/// Geriye dönük uyumluluk için alias
+typedef TurkishPhoneInputFormatter = PhoneInputFormatter;

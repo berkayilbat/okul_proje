@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'constants.dart';
 import 'auth_service.dart';
+import 'validators.dart';
+import 'widgets/phone_input_formatter.dart';
 
 class EditProfileScreen extends StatefulWidget {
   final String userPhone;
@@ -37,7 +39,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     if (!mounted) return;
 
     if (details.isNotEmpty) {
-      _phoneController.text = details['phone']?.toString() ?? '';
+      _phoneController.text = PhoneInputFormatter.format(details['phone']?.toString() ?? '');
       _addressController.text = details['address']?.toString() ?? '';
       _firstNameController.text = details['first_name']?.toString() ?? '';
       _lastNameController.text = details['last_name']?.toString() ?? '';
@@ -63,12 +65,18 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Future<void> _saveProfile() async {
-    final newPhone = _phoneController.text.trim();
+    final rawPhone = _phoneController.text.trim();
+    final newPhone = PhoneInputFormatter.toDbFormat(rawPhone);
     final firstName = _firstNameController.text.trim();
     final lastName = _lastNameController.text.trim();
 
-    if (newPhone.isEmpty || firstName.isEmpty || lastName.isEmpty) {
+    if (rawPhone.isEmpty || firstName.isEmpty || lastName.isEmpty) {
        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('İsim, soyisim veya telefon boş bırakılamaz.')));
+       return;
+    }
+
+    if (!Validators.isValidPhone(rawPhone)) {
+       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Geçerli bir telefon numarası giriniz (Örn: 5XX XXX XX XX).')));
        return;
     }
 
@@ -157,8 +165,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 TextField(
                   controller: _phoneController,
                   keyboardType: TextInputType.phone,
+                  maxLength: 14,
+                  inputFormatters: [PhoneInputFormatter()],
                   decoration: const InputDecoration(
                     labelText: 'Telefon Numarası',
+                    hintText: '05XX XXX XX XX',
+                    counterText: '',
                     border: OutlineInputBorder(),
                     prefixIcon: Icon(Icons.phone),
                   ),

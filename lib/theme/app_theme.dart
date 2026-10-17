@@ -78,9 +78,11 @@ class AppTheme {
         surfaceContainerHighest: AppColors.lightInput,
       ),
       appBarTheme: const AppBarTheme(
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
         foregroundColor: AppColors.lightPrimary,
         elevation: 0,
+        scrolledUnderElevation: 0,
         centerTitle: true,
         titleTextStyle: TextStyle(
           color: AppColors.lightPrimary,
@@ -121,9 +123,11 @@ class AppTheme {
         surfaceContainerHighest: AppColors.darkInput,
       ),
       appBarTheme: const AppBarTheme(
-        backgroundColor: AppColors.darkCard,
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
         foregroundColor: AppColors.darkTextPrimary,
         elevation: 0,
+        scrolledUnderElevation: 0,
         centerTitle: true,
         titleTextStyle: TextStyle(
           color: AppColors.darkTextPrimary,

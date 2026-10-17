@@ -36,8 +36,9 @@ if ((time() - $lastAttemptTime) >= 60) {
     $attempts = 0;
 }
 
-$stmt = $conn->prepare("SELECT * FROM users WHERE phone = ? LIMIT 1");
-$stmt->execute([$phone]);
+$altPhone = (strpos($phone, '0') === 0 && strlen($phone) === 11) ? substr($phone, 1) : ('0' . $phone);
+$stmt = $conn->prepare("SELECT * FROM users WHERE phone = ? OR phone = ? LIMIT 1");
+$stmt->execute([$phone, $altPhone]);
 
 if ($stmt->rowCount() > 0) {
     $user = $stmt->fetch(PDO::FETCH_ASSOC);

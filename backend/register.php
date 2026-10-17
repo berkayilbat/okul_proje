@@ -28,8 +28,9 @@ $tc_kimlik_no = isset($data->tc_kimlik_no) ? sanitize_input($data->tc_kimlik_no)
 $company_name = isset($data->company_name) ? sanitize_input($data->company_name) : null;
 $tax_no = isset($data->tax_no) ? sanitize_input($data->tax_no) : null;
 
-$checkStmt = $conn->prepare("SELECT id FROM users WHERE phone = ?");
-$checkStmt->execute([$phone]);
+$altPhone = (strpos($phone, '0') === 0 && strlen($phone) === 11) ? substr($phone, 1) : ('0' . $phone);
+$checkStmt = $conn->prepare("SELECT id FROM users WHERE phone = ? OR phone = ?");
+$checkStmt->execute([$phone, $altPhone]);
 if ($checkStmt->rowCount() > 0) {
     echo json_encode(["status" => "error", "message" => "Bu telefon numarası ile zaten kayıtlı bir kullanıcı var."]);
     exit();

@@ -1,0 +1,58 @@
+class AppConstants {
+  static const List<String> ankaraDistricts = [
+    'Akyurt',
+    'Altındağ',
+    'Ayaş',
+    'Bala',
+    'Beypazarı',
+    'Çamlıdere',
+    'Çankaya',
+    'Çubuk',
+    'Elmadağ',
+    'Etimesgut',
+    'Evren',
+    'Gölbaşı',
+    'Güdül',
+    'Haymana',
+    'Kahramankazan',
+    'Kalecik',
+    'Keçiören',
+    'Kızılcahamam',
+    'Mamak',
+    'Nallıhan',
+    'Polatlı',
+    'Pursaklar',
+    'Sincan',
+    'Şereflikoçhisar',
+    'Yenimahalle',
+  ];
+
+  static const List<String> jobTypes = [
+    'Barista',
+    'Bulaşıkçı',
+    'Garson',
+    'Kasiyer',
+    'Komi',
+    'Kurye',
+    'Meydancı',
+    'Temizlik Görevlisi',
+    'Vale',
+  ];
+
+  static const List<String> availableProfessions = [
+    'Garson',
+    'Kasiyer',
+    'Barista',
+    'Barmen',
+    'Aşçı',
+    'Komi',
+    'Bulaşıkçı',
+    'Kurye',
+    'Temizlik Görevlisi',
+    'Güvenlik',
+    'Vale',
+    'Animatör',
+    'Satış Danışmanı',
+    'Resepsiyonist',
+  ];
+}

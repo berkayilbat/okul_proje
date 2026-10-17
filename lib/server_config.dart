@@ -1,78 +1,67 @@
 import 'dart:io';
-import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ServerConfig {
-  static String? _baseUrl;
+  static const String _prefKeyHost = 'saved_server_host';
+  static const String defaultLocalIp = '192.168.1.7';
 
-  static String get baseUrl {
-    return _baseUrl ?? (kIsWeb ? 'http://127.0.0.1/backend' : 'http://10.0.2.2/backend');
+  /// Eğer fiziksel cihazda test ediyorsanız buraya bilgisayarınızın yerel IP'sini yazabilirsiniz.
+  static String? customHost;
+
+  /// Aktif host adresi (örn: 192.168.1.7 veya 10.0.2.2)
+  static String get activeHost {
+    if (customHost != null && customHost!.isNotEmpty) {
+      return customHost!;
+    }
+    if (kIsWeb) return '127.0.0.1';
+    if (!kIsWeb && Platform.isAndroid) {
+      return defaultLocalIp;
+    }
+    return '127.0.0.1';
   }
 
+  static String get baseUrl {
+    return 'http://$activeHost/backend';
+  }
+
+  /// Uygulama açılışında kayıtlı sunucu host bilgisini yükler
   static Future<void> discoverServer() async {
-    if (kIsWeb) {
-      _baseUrl = 'http://127.0.0.1/backend';
-      return;
-    }
-
-    // Hizli kontrol: Emulator
-    if (Platform.isAndroid || Platform.isIOS) {
-       try {
-         final res = await http.get(Uri.parse('http://10.0.2.2/backend/ping.php'))
-              .timeout(const Duration(milliseconds: 500));
-         if (res.statusCode == 200 && res.body.contains('my_app')) {
-            _baseUrl = 'http://10.0.2.2/backend';
-            return;
-         }
-       } catch (_) {}
-    }
-
-    // Ag taramasi
-    String? localIp;
     try {
-      final interfaces = await NetworkInterface.list(
-          type: InternetAddressType.IPv4, includeLoopback: false);
-      for (var interface in interfaces) {
-        for (var addr in interface.addresses) {
-          if (!addr.isLoopback) {
-             localIp = addr.address;
-             break;
-          }
-        }
-        if (localIp != null) break;
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getString(_prefKeyHost);
+      if (saved != null && saved.trim().isNotEmpty) {
+        customHost = saved.trim();
+      } else {
+        customHost = defaultLocalIp;
+      }
+    } catch (_) {
+      customHost = defaultLocalIp;
+    }
+  }
+
+  /// Yeni host belirler ve SharedPreferences'a kaydeder
+  static Future<void> setCustomHost(String host) async {
+    customHost = host.trim();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_prefKeyHost, customHost!);
+    } catch (_) {}
+  }
+
+  /// Belirtilen host veya aktif host için bağlantı testi yapar
+  static Future<bool> testConnection([String? hostToTest]) async {
+    final host = (hostToTest != null && hostToTest.trim().isNotEmpty) ? hostToTest.trim() : activeHost;
+    if (host.isEmpty) return false;
+
+    try {
+      final url = Uri.parse('http://$host/backend/ping.php');
+      final res = await http.get(url).timeout(const Duration(seconds: 3));
+      if (res.statusCode == 200 && res.body.contains('my_app')) {
+        return true;
       }
     } catch (_) {}
-
-    if (localIp != null && localIp.contains('.')) {
-      final parts = localIp.split('.');
-      final prefix = '${parts[0]}.${parts[1]}.${parts[2]}';
-      
-      for (int i = 1; i <= 254; i += 50) {
-         if (_baseUrl != null) break;
-         List<Future<void>> batch = [];
-         for (int j = i; j < i + 50 && j <= 254; j++) {
-            batch.add((() async {
-               if (_baseUrl != null) return;
-               final testIp = '$prefix.$j';
-               try {
-                 final socket = await Socket.connect(testIp, 80, timeout: const Duration(milliseconds: 300));
-                 socket.destroy();
-                 
-                 if (_baseUrl == null) {
-                   final res = await http.get(Uri.parse('http://$testIp/backend/ping.php'))
-                        .timeout(const Duration(milliseconds: 500));
-                   if (res.statusCode == 200 && res.body.contains('my_app')) {
-                     _baseUrl = 'http://$testIp/backend';
-                   }
-                 }
-               } catch (_) {}
-            })());
-         }
-         await Future.wait(batch);
-      }
-    }
-
-    // Bulunamazsa varsayilan
-    _baseUrl ??= (Platform.isAndroid || Platform.isIOS) ? 'http://10.0.2.2/backend' : 'http://127.0.0.1/backend';
+    return false;
   }
 }

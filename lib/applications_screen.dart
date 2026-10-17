@@ -1,8 +1,8 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'job_service.dart';
 import 'qr_generate_screen.dart';
 import 'qr_scan_screen.dart';
+import 'widgets/review_dialog.dart';
 
 class ApplicationsScreen extends StatefulWidget {
   final bool isEmployer;
@@ -17,21 +17,11 @@ class ApplicationsScreen extends StatefulWidget {
 class _ApplicationsScreenState extends State<ApplicationsScreen> {
   List<dynamic> _applications = [];
   bool _isLoading = true;
-  Timer? _pollingTimer;
 
   @override
   void initState() {
     super.initState();
     _fetchApplications();
-    _pollingTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-      _fetchApplicationsSilently();
-    });
-  }
-
-  @override
-  void dispose() {
-    _pollingTimer?.cancel();
-    super.dispose();
   }
 
   Future<void> _fetchApplications() async {
@@ -47,19 +37,6 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
           _applications = apps.where((app) => app['app_status'] != 'completed').toList();
         }
         _isLoading = false;
-      });
-    }
-  }
-
-  Future<void> _fetchApplicationsSilently() async {
-    final apps = await JobService.getApplications(widget.isEmployer);
-    if (mounted) {
-      setState(() {
-        if (widget.isHistory) {
-          _applications = apps.where((app) => app['app_status'] == 'completed').toList();
-        } else {
-          _applications = apps.where((app) => app['app_status'] != 'completed').toList();
-        }
       });
     }
   }
@@ -90,15 +67,16 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
   @override
   Widget build(BuildContext context) {
     return _isLoading
-        ? const Center(child: CircularProgressIndicator(color: Color(0xFF0A49A6)))
+        ? const Center(child: CircularProgressIndicator(color: const Color(0xFF111827)))
         : RefreshIndicator(
             onRefresh: _fetchApplications,
-            color: const Color(0xFF0A49A6),
+            color: const Color(0xFF111827),
             child: _applications.isEmpty ? _buildEmptyState() : _buildList(),
           );
   }
 
   Widget _buildEmptyState() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return SingleChildScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
       child: Container(
@@ -107,11 +85,11 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.assignment_outlined, size: 80, color: Colors.grey.shade400),
+            Icon(Icons.assignment_outlined, size: 80, color: isDark ? const Color(0xFF64748B) : Colors.grey.shade400),
             const SizedBox(height: 16),
             Text(
               widget.isHistory ? 'Geçmiş işleminiz bulunmuyor.' : 'Hiç başvuru yok.',
-              style: TextStyle(fontSize: 18, color: Colors.grey.shade600),
+              style: TextStyle(fontSize: 18, color: isDark ? const Color(0xFF94A3B8) : Colors.grey.shade600),
             ),
           ],
         ),
@@ -132,6 +110,13 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
   }
 
   Widget _buildApplicationCard(dynamic app) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? const Color(0xFF16191E) : Colors.white;
+    final cardBorder = isDark ? const Color(0xFF282F3A) : Colors.transparent;
+    final primaryColor = isDark ? const Color(0xFF60A5FA) : const Color(0xFF111827);
+    final textSecondary = isDark ? const Color(0xFF94A3B8) : Colors.grey.shade600;
+    final textBody = isDark ? const Color(0xFFCBD5E1) : Colors.grey.shade800;
+
     final status = app['app_status'];
     Color statusColor;
     String statusText;
@@ -165,15 +150,18 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cardBg,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        border: Border.all(color: cardBorder),
+        boxShadow: isDark
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
       ),
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -186,10 +174,10 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
                 Expanded(
                   child: Text(
                     app['title'].toString().toUpperCase(),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF0A49A6),
+                      color: primaryColor,
                     ),
                   ),
                 ),
@@ -215,11 +203,11 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
             if (widget.isEmployer)
               Row(
                 children: [
-                   Icon(Icons.person, size: 16, color: Colors.grey.shade600),
+                   Icon(Icons.person, size: 16, color: textSecondary),
                    const SizedBox(width: 4),
                    Text(
                      'Başvuran: ${app['first_name']} ${app['last_name']}',
-                     style: TextStyle(color: Colors.grey.shade800, fontSize: 16, fontWeight: FontWeight.w500),
+                     style: TextStyle(color: textBody, fontSize: 16, fontWeight: FontWeight.w500),
                    ),
                 ],
               ),
@@ -260,14 +248,17 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 12)
                   ),
-                  onPressed: () {
+                  onPressed: () async {
                     // İşe Başlama QR: START|id
-                    Navigator.push(
+                    final res = await Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (_) => QRGenerateScreen(qrData: 'START|${app['application_id']}'),
                       ),
                     );
+                    if (res == 'in_progress' || res != null) {
+                      _fetchApplications();
+                    }
                   },
                 ),
               ),
@@ -279,7 +270,7 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
                   icon: const Icon(Icons.qr_code_scanner),
                   label: const Text('İşverenin QR\'ını Okut (Bitir)', style: TextStyle(fontWeight: FontWeight.bold)),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF0A49A6),
+                    backgroundColor: primaryColor,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 12)
                   ),
@@ -328,16 +319,18 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: isDark ? const Color(0xFF1E232B) : Colors.white,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.grey.shade200),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.04),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
+                    border: Border.all(color: isDark ? const Color(0xFF282F3A) : Colors.grey.shade200),
+                    boxShadow: isDark
+                        ? null
+                        : [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.04),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -347,7 +340,7 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
                           Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: Colors.amber.shade50,
+                              color: isDark ? Colors.amber.withOpacity(0.15) : Colors.amber.shade50,
                               shape: BoxShape.circle,
                             ),
                             child: const Icon(Icons.star, color: Colors.amber, size: 20),
@@ -356,7 +349,14 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('Değerlendirmeniz', style: TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.w600)),
+                              Text(
+                                'Değerlendirmeniz',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: isDark ? const Color(0xFF94A3B8) : Colors.grey,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                               const SizedBox(height: 2),
                               Row(
                                 children: List.generate(5, (index) {
@@ -378,7 +378,7 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
                           child: Text(
                             '"${app['employer_review_comment']}"',
                             style: TextStyle(
-                              color: Colors.grey.shade800,
+                              color: isDark ? const Color(0xFFCBD5E1) : Colors.grey.shade800,
                               fontSize: 14,
                               fontStyle: FontStyle.italic,
                               height: 1.4,
@@ -397,94 +397,22 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
   }
 
   void _showRatingDialog(String applicationId, dynamic app) {
-    int selectedRating = 5;
-    TextEditingController commentController = TextEditingController();
-    bool isSubmitting = false;
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setStateSB) {
-            return AlertDialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-              title: const Text('İşvereni Değerlendir', style: TextStyle(fontWeight: FontWeight.bold)),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text('İşveren ve iş yeri hakkında ne düşünüyorsunuz?', textAlign: TextAlign.center),
-                    const SizedBox(height: 16),
-                    Wrap(
-                      alignment: WrapAlignment.center,
-                      spacing: 4.0,
-                      children: List.generate(5, (index) {
-                        return GestureDetector(
-                          onTap: () {
-                            setStateSB(() => selectedRating = index + 1);
-                          },
-                          child: Padding(
-                            padding: const EdgeInsets.all(4.0),
-                            child: Icon(
-                              index < selectedRating ? Icons.star : Icons.star_border,
-                              color: Colors.amber,
-                              size: 32,
-                            ),
-                          ),
-                        );
-                      }),
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: commentController,
-                      maxLines: 3,
-                      decoration: InputDecoration(
-                        hintText: 'İsteğe bağlı yorum yazın...',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                        filled: true,
-                        fillColor: Colors.grey.shade50,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('İptal', style: TextStyle(color: Colors.grey)),
-                ),
-                isSubmitting
-                    ? const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 16.0),
-                        child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
-                      )
-                    : ElevatedButton(
-                        style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0A49A6), foregroundColor: Colors.white),
-                        onPressed: () async {
-                          setStateSB(() => isSubmitting = true);
-                          final res = await JobService.submitEmployerReview(applicationId, selectedRating, commentController.text);
-                          
-                          if (!mounted) return;
-                          setStateSB(() => isSubmitting = false);
-                          
-                          Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(res['message'] ?? 'İşlem sonucu'),
-                              backgroundColor: res['status'] == 'success' ? Colors.green : Colors.red,
-                            )
-                          );
-                          if (res['status'] == 'success') {
-                            _fetchApplications();
-                          }
-                        },
-                        child: const Text('Değerlendir'),
-                      ),
-              ],
-            );
-          }
+    ReviewDialog.show(
+      context,
+      title: 'İşvereni Değerlendir',
+      onSubmit: (rating, comment) async {
+        final res = await JobService.submitEmployerReview(applicationId, rating, comment);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(res['message'] ?? 'İşlem sonucu'),
+            backgroundColor: res['status'] == 'success' ? Colors.green : Colors.red,
+          ),
         );
-      }
+        if (res['status'] == 'success') {
+          _fetchApplications();
+        }
+      },
     );
   }
 }

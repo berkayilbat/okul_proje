@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'constants.dart';
 import 'job_service.dart';
 
 class AddJobScreen extends StatefulWidget {
@@ -19,27 +20,7 @@ class _AddJobScreenState extends State<AddJobScreen> {
   final _priceController = TextEditingController();
 
   bool _isLoading = false;
-
-  final List<String> _jobTypes = [
-    'Barista',
-    'Bulaşıkçı',
-    'Garson',
-    'Kasiyer',
-    'Komi',
-    'Kurye',
-    'Meydancı',
-    'Temizlik Görevlisi',
-    'Vale'
-  ];
-
   String? _selectedDistrict;
-
-  final List<String> _ankaraDistricts = [
-    'Akyurt', 'Altındağ', 'Ayaş', 'Bala', 'Beypazarı', 'Çamlıdere', 'Çankaya', 
-    'Çubuk', 'Elmadağ', 'Etimesgut', 'Evren', 'Gölbaşı', 'Güdül', 'Haymana', 
-    'Kahramankazan', 'Kalecik', 'Keçiören', 'Kızılcahamam', 'Mamak', 'Nallıhan', 
-    'Polatlı', 'Pursaklar', 'Sincan', 'Şereflikoçhisar', 'Yenimahalle'
-  ];
 
   void _publishJob() async {
     if (_titleController.text.isEmpty) {
@@ -155,7 +136,7 @@ class _AddJobScreenState extends State<AddJobScreen> {
               const Padding(
                 padding: EdgeInsets.all(20.0),
                 child: Text('Çalışma Saatlerini Belirleyin',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF0A49A6))),
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: const Color(0xFF111827))),
               ),
               Expanded(
                 child: Row(
@@ -208,7 +189,7 @@ class _AddJobScreenState extends State<AddJobScreen> {
                   height: 50,
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0A49A6),
+                      backgroundColor: const Color(0xFF111827),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                       elevation: 0,
                     ),
@@ -233,13 +214,15 @@ class _AddJobScreenState extends State<AddJobScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? const Color(0xFF16191E) : Colors.white;
+    final borderColor = isDark ? const Color(0xFF282F3A) : Colors.grey.shade300;
+    final textColor = isDark ? const Color(0xFFF1F5F9) : Colors.black87;
+    final primaryColor = isDark ? const Color(0xFF60A5FA) : const Color(0xFF111827);
+
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
         title: const Text('Yeni İlan Oluştur', style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF0A49A6),
-        elevation: 0,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
@@ -255,7 +238,7 @@ class _AddJobScreenState extends State<AddJobScreen> {
                   await _showSingleSelectDropdown(
                     context, 
                     'İlan Türü', 
-                    _jobTypes, 
+                    AppConstants.jobTypes, 
                     _titleController.text, 
                     (newSelected) {
                       setState(() => _titleController.text = newSelected ?? '');
@@ -265,8 +248,8 @@ class _AddJobScreenState extends State<AddJobScreen> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                   decoration: BoxDecoration(
-                    color: Colors.white,
-                    border: Border.all(color: Colors.grey.shade300),
+                    color: cardBg,
+                    border: Border.all(color: borderColor),
                     borderRadius: BorderRadius.circular(16)
                   ),
                   child: Row(
@@ -275,11 +258,13 @@ class _AddJobScreenState extends State<AddJobScreen> {
                       Text(
                         _titleController.text.isEmpty ? 'İlan Türü Seçin' : _titleController.text,
                         style: TextStyle(
-                          color: _titleController.text.isEmpty ? Colors.grey.shade600 : Colors.black87,
+                          color: _titleController.text.isEmpty 
+                              ? (isDark ? const Color(0xFF94A3B8) : Colors.grey.shade600) 
+                              : textColor,
                           fontSize: 16
                         )
                       ),
-                      const Icon(Icons.arrow_drop_down, color: Colors.black54),
+                      Icon(Icons.arrow_drop_down, color: isDark ? const Color(0xFF94A3B8) : Colors.black54),
                     ]
                   )
                 )
@@ -292,7 +277,7 @@ class _AddJobScreenState extends State<AddJobScreen> {
                   await _showSingleSelectDropdown(
                     context, 
                     'İlçe', 
-                    _ankaraDistricts, 
+                    AppConstants.ankaraDistricts, 
                     _selectedDistrict, 
                     (newSelected) {
                       setState(() => _selectedDistrict = newSelected);
@@ -302,8 +287,8 @@ class _AddJobScreenState extends State<AddJobScreen> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                   decoration: BoxDecoration(
-                    color: Colors.white,
-                    border: Border.all(color: Colors.grey.shade300),
+                    color: cardBg,
+                    border: Border.all(color: borderColor),
                     borderRadius: BorderRadius.circular(16)
                   ),
                   child: Row(
@@ -312,12 +297,14 @@ class _AddJobScreenState extends State<AddJobScreen> {
                       Text(
                         _selectedDistrict == null ? 'İl: Ankara, İlçe Seçin' : 'Ankara, $_selectedDistrict', 
                         style: TextStyle(
-                          color: _selectedDistrict == null ? Colors.grey.shade600 : const Color(0xFF0A49A6),
+                          color: _selectedDistrict == null 
+                              ? (isDark ? const Color(0xFF94A3B8) : Colors.grey.shade600) 
+                              : primaryColor,
                           fontSize: 16,
                           fontWeight: _selectedDistrict == null ? FontWeight.normal : FontWeight.bold
                         )
                       ),
-                      const Icon(Icons.arrow_drop_down, color: Colors.black54),
+                      Icon(Icons.arrow_drop_down, color: isDark ? const Color(0xFF94A3B8) : Colors.black54),
                     ]
                   )
                 )
@@ -371,14 +358,14 @@ class _AddJobScreenState extends State<AddJobScreen> {
                   : ElevatedButton(
                       onPressed: _publishJob,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF0A49A6),
+                        backgroundColor: primaryColor,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 18),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
                         ),
                         elevation: 4,
-                        shadowColor: const Color(0xFF0A49A6).withOpacity(0.5),
+                        shadowColor: primaryColor.withOpacity(0.5),
                       ),
                       child: const Text('İlanı Yayınla', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                     ),
@@ -391,6 +378,7 @@ class _AddJobScreenState extends State<AddJobScreen> {
   }
 
   Widget _buildSectionTitle(String title) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.only(bottom: 16.0),
       child: Text(
@@ -398,7 +386,7 @@ class _AddJobScreenState extends State<AddJobScreen> {
         style: TextStyle(
           fontSize: 18,
           fontWeight: FontWeight.w600,
-          color: Colors.grey.shade800,
+          color: isDark ? const Color(0xFFF1F5F9) : Colors.grey.shade800,
         ),
       ),
     );
@@ -414,17 +402,25 @@ class _AddJobScreenState extends State<AddJobScreen> {
     bool readOnly = false,
     VoidCallback? onTap,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? const Color(0xFF16191E) : Colors.white;
+    final borderColor = isDark ? const Color(0xFF282F3A) : Colors.transparent;
+    final primaryColor = isDark ? const Color(0xFF60A5FA) : const Color(0xFF111827);
+
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cardBg,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        border: Border.all(color: borderColor),
+        boxShadow: isDark
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.02),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
       ),
       child: TextFormField(
         controller: controller,
@@ -433,19 +429,20 @@ class _AddJobScreenState extends State<AddJobScreen> {
         validator: validator,
         readOnly: readOnly,
         onTap: onTap,
+        style: TextStyle(color: isDark ? const Color(0xFFF1F5F9) : Colors.black87),
         decoration: InputDecoration(
           labelText: label,
-          labelStyle: TextStyle(color: Colors.grey.shade600),
-          prefixIcon: maxLines == 1 ? Icon(icon, color: const Color(0xFF0A49A6).withOpacity(0.6)) : Padding(
+          labelStyle: TextStyle(color: isDark ? const Color(0xFF94A3B8) : Colors.grey.shade600),
+          prefixIcon: maxLines == 1 ? Icon(icon, color: primaryColor.withOpacity(0.8)) : Padding(
             padding: const EdgeInsets.only(bottom: 50.0),
-            child: Icon(icon, color: const Color(0xFF0A49A6).withOpacity(0.6)),
+            child: Icon(icon, color: primaryColor.withOpacity(0.8)),
           ),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
             borderSide: BorderSide.none,
           ),
           filled: true,
-          fillColor: Colors.white,
+          fillColor: cardBg,
           contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         ),
       ),

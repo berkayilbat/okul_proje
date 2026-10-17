@@ -45,6 +45,27 @@ class JobService {
     }
   }
 
+  // İlan Silme (İşveren)
+  static Future<Map<String, dynamic>> deleteJob(String jobId) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/delete_job.php'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'job_id': jobId}),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      return {
+        'status': 'error',
+        'message': 'HTTP Hatası: ${response.statusCode}',
+      };
+    } catch (e) {
+      return {'status': 'error', 'message': 'Bağlantı hatası: $e'};
+    }
+  }
+
   // İlanları Getirme (İşveren kendi açtığı, Çalışan tüm açık ilanları)
   static Future<List<dynamic>> getJobs(bool isEmployer) async {
     try {
@@ -194,6 +215,26 @@ class JobService {
           'message': 'HTTP Hatası: ${response.statusCode}',
         };
       }
+    } catch (e) {
+      return {'status': 'error', 'message': 'Bağlantı hatası: $e'};
+    }
+  }
+
+  // Tek tıkla demo verilerini yükleme / sıfırlama
+  static Future<Map<String, dynamic>> seedDatabase() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/seed.php'),
+        headers: {'Content-Type': 'application/json'},
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      return {
+        'status': 'error',
+        'message': 'HTTP Hatası: ${response.statusCode}',
+      };
     } catch (e) {
       return {'status': 'error', 'message': 'Bağlantı hatası: $e'};
     }

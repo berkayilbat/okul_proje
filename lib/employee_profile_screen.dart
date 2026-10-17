@@ -51,17 +51,15 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final initials = '${widget.firstName.isNotEmpty ? widget.firstName[0] : ''}${widget.lastName.isNotEmpty ? widget.lastName[0] : ''}'.toUpperCase();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = isDark ? const Color(0xFF3B82F6) : const Color(0xFF111827);
 
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
         title: const Text('Çalışan Profili', style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF0A49A6),
-        elevation: 0,
       ),
       body: _isLoading 
-        ? const Center(child: CircularProgressIndicator(color: Color(0xFF0A49A6)))
+        ? Center(child: CircularProgressIndicator(color: primaryColor))
         : SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
         child: Column(
@@ -70,13 +68,13 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
             Center(
               child: CircleAvatar(
                 radius: 60,
-                backgroundColor: const Color(0xFF0A49A6).withOpacity(0.1),
+                backgroundColor: isDark ? const Color(0xFF1E232B) : const Color(0xFF111827).withOpacity(0.1),
                 child: Text(
                   initials,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 40,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF0A49A6),
+                    color: primaryColor,
                   ),
                 ),
               ),
@@ -84,28 +82,28 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
             const SizedBox(height: 20),
             Text(
               '${widget.firstName} ${widget.lastName}',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 28,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF0A49A6),
+                color: primaryColor,
               ),
             ),
             const SizedBox(height: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
-                color: Colors.green.shade50,
+                color: isDark ? Colors.green.withOpacity(0.15) : Colors.green.shade50,
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.verified, color: Colors.green.shade600, size: 20),
+                  Icon(Icons.verified, color: isDark ? const Color(0xFF4ADE80) : Colors.green.shade600, size: 20),
                   const SizedBox(width: 6),
                   Text(
                     'Onaylı Çalışan',
                     style: TextStyle(
-                      color: Colors.green.shade700,
+                      color: isDark ? const Color(0xFF4ADE80) : Colors.green.shade700,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -125,7 +123,7 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
               icon: Icons.star_rounded,
               title: 'Ortalama Puan',
               value: _averageRating > 0 ? '${_averageRating.toStringAsFixed(1)} / 5.0' : 'Henüz değerlendirme yok',
-              valueColor: _averageRating > 0 ? Colors.amber.shade700 : Colors.grey.shade600,
+              valueColor: _averageRating > 0 ? Colors.amber.shade700 : (isDark ? const Color(0xFF94A3B8) : Colors.grey.shade600),
             ),
             const SizedBox(height: 16),
             
@@ -133,17 +131,17 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
               icon: Icons.work_history,
               title: 'Tamamlanan İş',
               value: '$_jobCount',
-              valueColor: Colors.black87,
+              valueColor: isDark ? const Color(0xFFF1F5F9) : Colors.black87,
             ),
             
             const SizedBox(height: 40),
             
             if (_recentJobs.isNotEmpty) ...[
-              const Align(
+              Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
                   'Yorumlar ve Değerlendirmeler',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0A49A6)),
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: primaryColor),
                 ),
               ),
               const SizedBox(height: 12),
@@ -153,8 +151,8 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
                   margin: const EdgeInsets.only(bottom: 12),
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.white,
-                    border: Border.all(color: Colors.grey.shade200),
+                    color: isDark ? const Color(0xFF16191E) : Colors.white,
+                    border: Border.all(color: isDark ? const Color(0xFF282F3A) : Colors.grey.shade200),
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Column(
@@ -165,7 +163,11 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
                           Expanded(
                             child: Text(
                               job['title'].toString(),
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold, 
+                                fontSize: 15,
+                                color: isDark ? const Color(0xFFF1F5F9) : Colors.black87,
+                              ),
                             ),
                           ),
                           if (job['rating'] != null && job['rating'] > 0)
@@ -185,7 +187,10 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
                         const SizedBox(height: 8),
                         Text(
                           '"${job['comment']}"',
-                          style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey.shade700),
+                          style: TextStyle(
+                            fontStyle: FontStyle.italic, 
+                            color: isDark ? const Color(0xFFCBD5E1) : Colors.grey.shade700,
+                          ),
                         ),
                       ]
                     ],
@@ -205,28 +210,34 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
     required String value,
     Color? valueColor,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = isDark ? const Color(0xFF60A5FA) : const Color(0xFF111827);
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF16191E) : Colors.white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        border: Border.all(color: isDark ? const Color(0xFF282F3A) : Colors.transparent),
+        boxShadow: isDark
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFF0A49A6).withOpacity(0.1),
+              color: isDark ? const Color(0xFF1E232B) : const Color(0xFF111827).withOpacity(0.1),
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, color: const Color(0xFF0A49A6)),
+            child: Icon(icon, color: primaryColor),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -237,7 +248,7 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
                   title,
                   style: TextStyle(
                     fontSize: 14,
-                    color: Colors.grey.shade600,
+                    color: isDark ? const Color(0xFF94A3B8) : Colors.grey.shade600,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -247,7 +258,7 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
                   style: TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.bold,
-                    color: valueColor ?? Colors.black87,
+                    color: valueColor ?? (isDark ? const Color(0xFFF1F5F9) : Colors.black87),
                   ),
                 ),
               ],

@@ -4,10 +4,12 @@ import 'server_config.dart';
 import 'auth_service.dart';
 import 'login_screen.dart';
 import 'home_screen.dart';
+import 'theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await ServerConfig.discoverServer();
+  await ThemeController.init();
   final bool isLoggedIn = await AuthService.isLoggedIn();
   final String role = await AuthService.getRole();
   runApp(MyApp(isLoggedIn: isLoggedIn, role: role));
@@ -20,20 +22,25 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'My First App',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF0A49A6)),
-        useMaterial3: true,
-      ),
-      debugShowCheckedModeBanner: false,
-      localizationsDelegates: const [
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      supportedLocales: const [Locale('tr', 'TR')],
-      home: isLoggedIn ? HomeScreen(role: role) : const LoginScreen(),
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: ThemeController.themeModeNotifier,
+      builder: (context, currentThemeMode, _) {
+        return MaterialApp(
+          title: 'Yömyeci',
+          theme: AppTheme.lightTheme,
+          darkTheme: AppTheme.darkTheme,
+          themeMode: currentThemeMode,
+          debugShowCheckedModeBanner: false,
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: const [Locale('tr', 'TR')],
+          home: isLoggedIn ? HomeScreen(role: role) : const LoginScreen(),
+        );
+      },
     );
   }
 }
+

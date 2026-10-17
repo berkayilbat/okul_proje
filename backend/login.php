@@ -2,20 +2,19 @@
 require_once 'db.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    echo json_encode(["status" => "error", "message" => "Invalid request method."]);
+    echo json_encode(["status" => "error", "message" => "Geçersiz istek metodu."]);
     exit();
 }
 
 $data = json_decode(file_get_contents("php://input"));
 
-if (!isset($data->phone) || !isset($data->password) || !isset($data->role)) {
-    echo json_encode(["status" => "error", "message" => "Eksik giriş bilgileri."]);
+if (!isset($data->phone) || !isset($data->password)) {
+    echo json_encode(["status" => "error", "message" => "Lütfen telefon ve şifrenizi girin."]);
     exit();
 }
 
 $phone = sanitize_input($data->phone);
 $password = $data->password;
-$role = sanitize_input($data->role);
 
 if (session_status() === PHP_SESSION_NONE) {
     @session_start();
@@ -46,13 +45,13 @@ if ($stmt->rowCount() > 0) {
     $isPasswordValid = password_verify($password, $user['password']) || ($password === $user['password']);
     
     if ($isPasswordValid) {
-        if ($role === $user['role']) {
-            $_SESSION[$attemptsKey] = 0;
-            unset($user['password']);
-            echo json_encode(["status" => "success", "message" => "Giriş başarılı.", "user" => $user]);
-        } else {
-            echo json_encode(["status" => "error", "message" => "Hesabınızın türü (İşveren/Çalışan) yanlış seçilmiş."]);
-        }
+        $_SESSION[$attemptsKey] = 0;
+        unset($user['password']);
+        echo json_encode([
+            "status" => "success", 
+            "message" => "Giriş başarılı.", 
+            "user" => $user
+        ]);
     } else {
         $_SESSION[$attemptsKey] = $attempts + 1;
         $_SESSION[$timeKey] = time();

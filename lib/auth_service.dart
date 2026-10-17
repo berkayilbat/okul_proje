@@ -41,17 +41,16 @@ class AuthService {
     };
   }
 
-  static Future<bool> login(
+  static Future<Map<String, dynamic>> login(
     String phone,
     String password,
     bool rememberMe,
-    String role,
   ) async {
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/login.php'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'phone': phone, 'password': password, 'role': role}),
+        body: jsonEncode({'phone': phone, 'password': password}),
       );
 
       if (response.statusCode == 200) {
@@ -59,53 +58,83 @@ class AuthService {
         if (data['status'] == 'success') {
           // Giriş Başarılı
           final prefs = await SharedPreferences.getInstance();
-          await prefs.setString(_keyRole, role);
+          final userMap = data['user'] ?? {};
+          final String userRole = userMap['role']?.toString() ?? '';
+          
+          await prefs.setString(_keyRole, userRole);
 
-          final userMap = data['user'];
-          if (userMap['first_name'] != null)
+          if (userMap['first_name'] != null) {
             await prefs.setString(
               _keyFirstName,
               userMap['first_name'].toString(),
             );
-          if (userMap['last_name'] != null)
+          }
+          if (userMap['last_name'] != null) {
             await prefs.setString(
               _keyLastName,
               userMap['last_name'].toString(),
             );
-          if (userMap['company_name'] != null)
+          }
+          if (userMap['company_name'] != null) {
             await prefs.setString(
               _keyCompanyName,
               userMap['company_name'].toString(),
             );
-          if (userMap['tc_kimlik_no'] != null)
+          }
+          if (userMap['tc_kimlik_no'] != null) {
             await prefs.setString(
               _keyTcKimlikNo,
               userMap['tc_kimlik_no'].toString(),
             );
+          }
             
+          int isComplete = 0;
           if (userMap['is_profile_complete'] != null) {
-            await prefs.setInt('is_profile_complete', int.tryParse(userMap['is_profile_complete'].toString()) ?? 0);
-          } else {
-            await prefs.setInt('is_profile_complete', 0);
+            isComplete = int.tryParse(userMap['is_profile_complete'].toString()) ?? 0;
           }
+          await prefs.setInt('is_profile_complete', isComplete);
 
-          // Her oturumda telefon numarasına ihtiyacımız var (API çağrıları için)
           await prefs.setString(_keyPhone, phone);
-          
-          if (rememberMe) {
-            await prefs.setBool(_keyRememberMe, true);
-          } else {
-            await prefs.setBool(_keyRememberMe, false);
-          }
-          return true;
+          await prefs.setBool(_keyRememberMe, rememberMe);
+
+          return {
+            'success': true,
+            'role': userRole,
+            'is_profile_complete': isComplete,
+            'user': userMap,
+          };
         } else {
-          // Giriş Başarısız (Hatalı şifre, numara veya rol)
-          print('Giriş Hatası: ${data['message']}');
-          return false;
+          return {
+            'success': false,
+            'message': data['message'] ?? 'Giriş başarısız',
+          };
         }
       }
     } catch (e) {
       print('HTTP İstek Hatası (Login): $e');
+      return {'success': false, 'message': 'Bağlantı hatası: $e'};
+    }
+    return {'success': false, 'message': 'Sunucuya bağlanılamadı'};
+  }
+
+  static Future<bool> setUserRole(String phone, String role) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/set_user_role.php'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'phone': phone, 'role': role}),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['status'] == 'success') {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString(_keyRole, role);
+          return true;
+        }
+      }
+    } catch (e) {
+      print('HTTP İstek Hatası (Set User Role): $e');
     }
     return false;
   }

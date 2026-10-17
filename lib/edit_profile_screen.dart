@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'constants.dart';
 import 'auth_service.dart';
 
 class EditProfileScreen extends StatefulWidget {
@@ -21,11 +22,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   bool _isLoading = true;
   bool _isSaving = false;
 
-  final List<String> _availableProfessions = [
-    'Garson', 'Kasiyer', 'Barista', 'Barmen', 'Aşçı', 'Komi', 
-    'Bulaşıkçı', 'Kurye', 'Temizlik Görevlisi', 'Güvenlik', 
-    'Vale', 'Animatör', 'Satış Danışmanı', 'Resepsiyonist'
-  ];
+  final List<String> _availableProfessions = List.from(AppConstants.availableProfessions);
 
   Set<String> _selectedProfessions = {};
 
@@ -113,22 +110,21 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final isEmployee = widget.role == 'Employee';
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = isDark ? const Color(0xFF3B82F6) : const Color(0xFF111827);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Profilimi Düzenle', style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF0A49A6),
-        elevation: 0,
       ),
       body: _isLoading 
-        ? const Center(child: CircularProgressIndicator(color: Color(0xFF0A49A6)))
+        ? Center(child: CircularProgressIndicator(color: primaryColor))
         : SingleChildScrollView(
             padding: const EdgeInsets.all(24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Kişisel Bilgiler', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF0A49A6))),
+                Text('Kişisel Bilgiler', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: primaryColor)),
                 const SizedBox(height: 16),
                 Row(
                   children: [
@@ -156,7 +152,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 ),
                 const SizedBox(height: 24),
                 
-                const Text('İletişim Bilgileri', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF0A49A6))),
+                Text('İletişim Bilgileri', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: primaryColor)),
                 const SizedBox(height: 16),
                 TextField(
                   controller: _phoneController,
@@ -170,7 +166,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 const SizedBox(height: 24),
                 
                 if (widget.role == 'Employer') ...[
-                  const Text('Kurumsal Bilgiler', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF0A49A6))),
+                  Text('Kurumsal Bilgiler', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: primaryColor)),
                   const SizedBox(height: 16),
                   TextField(
                     controller: _taxNoController,
@@ -185,7 +181,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 ],
                 
                 if (isEmployee) ...[
-                  const Text('İkametgah Adresi', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF0A49A6))),
+                  Text('İkametgah Adresi', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: primaryColor)),
                   const SizedBox(height: 16),
                   TextField(
                     controller: _addressController,
@@ -201,7 +197,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   ),
                   const SizedBox(height: 24),
 
-                  const Text('Çalışabileceğiniz Meslekler (İstediğiniz kadar seçin)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF0A49A6))),
+                  Text('Çalışabileceğiniz Meslekler (İstediğiniz kadar seçin)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: primaryColor)),
                   const SizedBox(height: 12),
                   Wrap(
                     spacing: 8.0,
@@ -211,10 +207,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                        return FilterChip(
                          label: Text(prof),
                          selected: isSelected,
-                         selectedColor: Colors.blue.shade100,
-                         checkmarkColor: const Color(0xFF0A49A6),
+                         backgroundColor: isDark ? const Color(0xFF1E232B) : null,
+                         selectedColor: isDark ? const Color(0xFF1E3A8A) : Colors.blue.shade100,
+                         checkmarkColor: isDark ? const Color(0xFF60A5FA) : const Color(0xFF111827),
+                         side: BorderSide(color: isDark ? const Color(0xFF282F3A) : Colors.grey.shade300),
                          labelStyle: TextStyle(
-                           color: isSelected ? const Color(0xFF0A49A6) : Colors.grey.shade800,
+                           color: isSelected 
+                               ? (isDark ? const Color(0xFF93C5FD) : const Color(0xFF111827)) 
+                               : (isDark ? const Color(0xFF94A3B8) : Colors.grey.shade800),
                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal
                          ),
                          onSelected: (bool selected) {
@@ -238,7 +238,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   child: ElevatedButton(
                     onPressed: _isSaving ? null : _saveProfile,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0A49A6),
+                      backgroundColor: primaryColor,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),

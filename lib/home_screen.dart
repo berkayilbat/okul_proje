@@ -1,11 +1,14 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'constants.dart';
 import 'auth_service.dart';
 import 'login_screen.dart';
 import 'add_job_screen.dart';
 import 'jobs_list_screen.dart';
 import 'applications_screen.dart';
 import 'edit_profile_screen.dart';
+import 'widgets/animated_theme_toggle.dart';
+import 'theme/app_theme.dart';
 
 class HomeScreen extends StatefulWidget {
   final String role;
@@ -17,34 +20,14 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
-  int _activeFilterIndex = 0; // Üst kısımdaki yatay menü için ('İlanlar', 'Geçmiş İşlerim' vs.)
   int _listUpdateKey = 0;
 
-  final List<String> _jobTypes = [
-    'Barista',
-    'Bulaşıkçı',
-    'Garson',
-    'Kasiyer',
-    'Komi',
-    'Kurye',
-    'Meydancı',
-    'Temizlik Görevlisi',
-    'Vale'
-  ];
   Set<String> _selectedJobFilters = {};
-
-  final List<String> _ankaraDistricts = [
-    'Akyurt', 'Altındağ', 'Ayaş', 'Bala', 'Beypazarı', 'Çamlıdere', 'Çankaya', 
-    'Çubuk', 'Elmadağ', 'Etimesgut', 'Evren', 'Gölbaşı', 'Güdül', 'Haymana', 
-    'Kahramankazan', 'Kalecik', 'Keçiören', 'Kızılcahamam', 'Mamak', 'Nallıhan', 
-    'Polatlı', 'Pursaklar', 'Sincan', 'Şereflikoçhisar', 'Yenimahalle'
-  ];
   Set<String> _selectedLocationFilters = {};
   
   String _firstName = "Yükleniyor...";
   String _lastName = "";
   String _companyName = "";
-  String _tcKimlikNo = "";
 
   // Dinamik profil verileri (Yeni, boş hesap görünümü)
   int _jobCount = 0;
@@ -57,21 +40,10 @@ class _HomeScreenState extends State<HomeScreen> {
   
   String _userPhone = "";
 
-  Timer? _pollingTimer;
-
   @override
   void initState() {
     super.initState();
     _loadUserData();
-    _pollingTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-      _loadUserData(); // loadUserData zaten sessiz çalışıyor, arayüzü bozmuyor
-    });
-  }
-
-  @override
-  void dispose() {
-    _pollingTimer?.cancel();
-    super.dispose();
   }
 
   void _loadUserData() async {
@@ -81,7 +53,6 @@ class _HomeScreenState extends State<HomeScreen> {
         _firstName = userData['first_name'] ?? "Bilinmeyen";
         _lastName = userData['last_name'] ?? "Kullanıcı";
         _companyName = userData['company_name'] ?? "";
-        _tcKimlikNo = userData['tc_kimlik_no'] ?? "";
       });
     }
 
@@ -123,12 +94,16 @@ class _HomeScreenState extends State<HomeScreen> {
              _lastJobSubtitle = "-";
              _lastJobRating = 0.0;
           }
+          if (stats['last_payment'] != null) {
+             _lastPaymentText = stats['last_payment'].toString();
+          }
         });
       }
     }
   }
 
   void _onItemTapped(int index) {
+    HapticFeedback.lightImpact();
     setState(() {
       _selectedIndex = index;
     });
@@ -136,73 +111,292 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadUserData();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    bool isEmployer = widget.role == 'Employer';
+  Widget _buildTopHeader(bool isEmployer, bool isDark) {
+    String title;
+    bool showFilter = false;
 
-    final pages = [isEmployer ? 'İlanlarım' : 'İlanlar', 'Profil'];
+    if (isEmployer) {
+      if (_selectedIndex == 0) {
+        title = 'İlanlarım';
+        showFilter = true;
+      } else {
+        title = 'Geçmiş İlanlarım';
+      }
+    } else {
+      if (_selectedIndex == 0) {
+        title = 'İlanlar';
+        showFilter = true;
+      } else if (_selectedIndex == 1) {
+        title = 'Başvurularım';
+      } else {
+        title = 'Geçmiş İşlerim';
+      }
+    }
 
-    return Scaffold(
-      body: SafeArea(
-        child: Stack(
-          children: [
-            Column(
-              children: [
-                if (_selectedIndex == 0)
-                  Column(
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(top: 16.0, bottom: 8.0),
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              _buildTopFilterButton(
-                                isEmployer ? 'İlanlarım' : 'İlanlar',
-                                _activeFilterIndex == 0,
-                                onTap: () {
-                                  setState(() => _activeFilterIndex = 0);
-                                },
-                              ),
-                              const SizedBox(width: 24),
-                              Container(
-                                width: 1,
-                                height: 20,
-                                color: Colors.grey.shade400,
-                              ),
-                              const SizedBox(width: 24),
-                              _buildTopFilterButton(
-                                isEmployer ? 'Geçmiş İlanlarım' : 'Geçmiş İşlerim',
-                                _activeFilterIndex == 1,
-                                onTap: () {
-                                  setState(() => _activeFilterIndex = 1);
-                                },
-                              ),
-                            ],
+    final hasActiveFilters = _selectedJobFilters.isNotEmpty || _selectedLocationFilters.isNotEmpty;
+    final filterCount = _selectedJobFilters.length + _selectedLocationFilters.length;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              letterSpacing: -0.5,
+              color: isDark ? Colors.white : const Color(0xFF111827),
+            ),
+          ),
+          if (showFilter)
+            InkWell(
+              onTap: _showFilterBottomSheet,
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isDark ? AppColors.darkInput : Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: hasActiveFilters
+                        ? (isDark ? AppColors.darkPrimary : const Color(0xFF111827))
+                        : (isDark ? AppColors.darkBorder : Colors.grey.shade300),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.tune,
+                      size: 18,
+                      color: hasActiveFilters
+                          ? (isDark ? AppColors.darkPrimary : const Color(0xFF111827))
+                          : (isDark ? AppColors.darkTextSecondary : Colors.grey.shade700),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Filtrele',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: hasActiveFilters
+                            ? (isDark ? AppColors.darkPrimary : const Color(0xFF111827))
+                            : (isDark ? AppColors.darkTextSecondary : Colors.grey.shade700),
+                      ),
+                    ),
+                    if (hasActiveFilters) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: isDark ? AppColors.darkPrimary : const Color(0xFF111827),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          '$filterCount',
+                          style: TextStyle(
+                            color: isDark ? Colors.black : Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
                       ),
-                      Divider(
-                        color: Colors.grey.shade300,
-                        indent: 32,
-                        endIndent: 32,
-                        thickness: 1,
-                        height: 20,
+                    ],
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCurrentTab(bool isEmployer) {
+    if (isEmployer) {
+      if (_selectedIndex == 0) {
+        return JobsListScreen(
+          key: ValueKey('jobs_$_listUpdateKey'),
+          isEmployer: true,
+          isHistory: false,
+          jobFilters: _selectedJobFilters,
+          locationFilters: _selectedLocationFilters,
+        );
+      } else if (_selectedIndex == 1) {
+        return JobsListScreen(
+          key: ValueKey('jobs_hist_$_listUpdateKey'),
+          isEmployer: true,
+          isHistory: true,
+          jobFilters: _selectedJobFilters,
+          locationFilters: _selectedLocationFilters,
+        );
+      } else {
+        return _buildProfileTab(isEmployer);
+      }
+    } else {
+      if (_selectedIndex == 0) {
+        return JobsListScreen(
+          key: ValueKey('jobs_$_listUpdateKey'),
+          isEmployer: false,
+          isHistory: false,
+          jobFilters: _selectedJobFilters,
+          locationFilters: _selectedLocationFilters,
+        );
+      } else if (_selectedIndex == 1) {
+        return ApplicationsScreen(
+          key: ValueKey('apps_$_listUpdateKey'),
+          isEmployer: false,
+          isHistory: false,
+        );
+      } else if (_selectedIndex == 2) {
+        return ApplicationsScreen(
+          key: ValueKey('apps_hist_$_listUpdateKey'),
+          isEmployer: false,
+          isHistory: true,
+        );
+      } else {
+        return _buildProfileTab(isEmployer);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isEmployer = widget.role == 'Employer';
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bool isProfileTab = isEmployer ? _selectedIndex == 2 : _selectedIndex == 3;
+
+    return Scaffold(
+      body: SafeArea(
+        child: Column(
+          children: [
+            if (!isProfileTab) _buildTopHeader(isEmployer, isDark),
+            Expanded(
+              child: _buildCurrentTab(isEmployer),
+            ),
+          ],
+        ),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+      floatingActionButton: isEmployer && _selectedIndex != 2
+          ? FloatingActionButton(
+              onPressed: () async {
+                final result = await Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AddJobScreen()),
+                );
+                _loadUserData();
+                if (result == true) {
+                  setState(() {
+                    _listUpdateKey++;
+                  });
+                }
+              },
+              backgroundColor: isDark ? AppColors.darkPrimary : const Color(0xFF111827),
+              foregroundColor: isDark ? Colors.black : Colors.white,
+              elevation: 4,
+              shape: const CircleBorder(),
+              child: const Icon(Icons.add, size: 28),
+            )
+          : null,
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.darkCard : Colors.white,
+          border: Border(
+            top: BorderSide(
+              color: isDark ? AppColors.darkBorder : Colors.grey.shade200,
+              width: 1,
+            ),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: isDark ? Colors.black.withOpacity(0.3) : Colors.black.withOpacity(0.04),
+              blurRadius: 16,
+              offset: const Offset(0, -4),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          top: false,
+          child: SizedBox(
+            height: 64,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: isEmployer
+                  ? [
+                      Expanded(
+                        child: _buildNavItem(
+                          0,
+                          Icons.format_list_bulleted_rounded,
+                          'İlanlarım',
+                          isDark,
+                        ),
+                      ),
+                      Expanded(
+                        child: _buildNavItem(
+                          1,
+                          Icons.history_rounded,
+                          'Geçmiş İlanlarım',
+                          isDark,
+                        ),
+                      ),
+                      Expanded(
+                        child: _buildNavItem(
+                          2,
+                          Icons.person_outline,
+                          'Profil',
+                          isDark,
+                        ),
+                      ),
+                    ]
+                  : [
+                      Expanded(
+                        child: _buildNavItem(
+                          0,
+                          Icons.work_outline,
+                          'İlanlar',
+                          isDark,
+                        ),
+                      ),
+                      Expanded(
+                        child: _buildNavItem(
+                          1,
+                          Icons.assignment_turned_in_outlined,
+                          'Başvurularım',
+                          isDark,
+                        ),
+                      ),
+                      Expanded(
+                        child: _buildNavItem(
+                          2,
+                          Icons.history_rounded,
+                          'Geçmiş İşlerim',
+                          isDark,
+                        ),
+                      ),
+                      Expanded(
+                        child: _buildNavItem(
+                          3,
+                          Icons.person_outline,
+                          'Profil',
+                          isDark,
+                        ),
                       ),
                     ],
-                  ),
-                Expanded(
-                  child: _selectedIndex == 0
-                  ? (_activeFilterIndex == 0 
-                      ? JobsListScreen(key: ValueKey('jobs_$_listUpdateKey'), isEmployer: isEmployer, jobFilters: _selectedJobFilters, locationFilters: _selectedLocationFilters)
-                      : isEmployer
-                          ? JobsListScreen(key: ValueKey('jobs_hist_$_listUpdateKey'), isEmployer: true, isHistory: true, jobFilters: _selectedJobFilters, locationFilters: _selectedLocationFilters)
-                          : ApplicationsScreen(key: ValueKey('apps_hist_$_listUpdateKey'), isEmployer: false, isHistory: true))
-                  : (!isEmployer && _selectedIndex == 1)
-                      ? ApplicationsScreen(key: ValueKey('apps_$_listUpdateKey'), isEmployer: false)
-                  : SingleChildScrollView( // _selectedIndex == 1 (İşveren) veya _selectedIndex == 2 (Çalışan) -> Profil
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
+  Widget _buildProfileTab(bool isEmployer) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? AppColors.darkCard : Colors.white;
+    final cardBorder = isDark ? AppColors.darkBorder : Colors.grey.shade200;
+
+    return SingleChildScrollView(
                       padding: const EdgeInsets.all(24.0),
                       child: Column(
                         children: [
@@ -237,27 +431,49 @@ class _HomeScreenState extends State<HomeScreen> {
                                       isEmployer
                                           ? (_companyName.isNotEmpty ? _companyName : 'İşveren Hesabı')
                                           : 'Çalışan Hesabı',
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontSize: 16,
-                                        color: Colors.grey,
+                                        color: isDark ? AppColors.darkTextSecondary : Colors.grey,
                                       ),
                                     ),
                                   ],
                                 ),
                               ),
-                              IconButton(
-                                onPressed: () {
+                              // Profil Üst Çubuğu: Siyah-Beyaz Animasyonlu Tema ve Çıkış Butonları
+                              const AnimatedThemeToggle(width: 60, height: 30),
+                              const SizedBox(width: 10),
+                              AnimatedLogoutButton(
+                                size: 30,
+                                onLogout: () {
                                   showDialog(
                                     context: context,
                                     builder: (context) => AlertDialog(
-                                      title: const Text('Çıkış Yap'),
-                                      content: const Text(
+                                      backgroundColor: isDark ? AppColors.darkCard : Colors.white,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(20),
+                                        side: BorderSide(
+                                          color: isDark ? AppColors.darkBorder : Colors.grey.shade200,
+                                        ),
+                                      ),
+                                      title: Text(
+                                        'Çıkış Yap',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: isDark ? Colors.white : Colors.black,
+                                        ),
+                                      ),
+                                      content: Text(
                                         'Çıkış yapmak istediğinize emin misiniz?',
+                                        style: TextStyle(
+                                          color: isDark ? AppColors.darkTextSecondary : Colors.black87,
+                                        ),
                                       ),
                                       actions: [
                                         TextButton(
-                                          onPressed: () =>
-                                              Navigator.pop(context),
+                                          onPressed: () => Navigator.pop(context),
+                                          style: TextButton.styleFrom(
+                                            foregroundColor: isDark ? Colors.white70 : Colors.black54,
+                                          ),
                                           child: const Text('İptal'),
                                         ),
                                         ElevatedButton(
@@ -265,31 +481,29 @@ class _HomeScreenState extends State<HomeScreen> {
                                             Navigator.pushAndRemoveUntil(
                                               context,
                                               MaterialPageRoute(
-                                                builder: (context) =>
-                                                    const LoginScreen(),
+                                                builder: (context) => const LoginScreen(),
                                               ),
                                               (Route<dynamic> route) => false,
                                             );
                                           },
                                           style: ElevatedButton.styleFrom(
-                                            backgroundColor: Colors.red.shade50,
-                                            foregroundColor: Colors.red,
+                                            backgroundColor: isDark ? Colors.white : Colors.black,
+                                            foregroundColor: isDark ? Colors.black : Colors.white,
+                                            elevation: 0,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(12),
+                                            ),
+                                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                                           ),
-                                          child: const Text('Evet'),
+                                          child: const Text(
+                                            'Çıkış Yap',
+                                            style: TextStyle(fontWeight: FontWeight.bold),
+                                          ),
                                         ),
                                       ],
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(16),
-                                      ),
                                     ),
                                   );
                                 },
-                                icon: const Icon(
-                                  Icons.logout,
-                                  color: Colors.red,
-                                ),
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(),
                               ),
                             ],
                           ),
@@ -302,14 +516,14 @@ class _HomeScreenState extends State<HomeScreen> {
                                     vertical: 16,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: Colors.white,
+                                    color: cardBg,
                                     borderRadius: BorderRadius.circular(16),
                                     border: Border.all(
-                                      color: Colors.grey.shade200,
+                                      color: cardBorder,
                                     ),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: Colors.black.withOpacity(0.02),
+                                        color: isDark ? Colors.black.withOpacity(0.3) : Colors.black.withOpacity(0.02),
                                         blurRadius: 4,
                                         offset: const Offset(0, 2),
                                       ),
@@ -321,8 +535,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                         isEmployer
                                             ? 'Açılan İlanlar'
                                             : 'Tamamlanan İşlerim',
-                                        style: const TextStyle(
-                                          color: Colors.grey,
+                                        style: TextStyle(
+                                          color: isDark ? AppColors.darkTextSecondary : Colors.grey,
                                           fontSize: 12,
                                         ),
                                       ),
@@ -359,14 +573,14 @@ class _HomeScreenState extends State<HomeScreen> {
                                     vertical: 16,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: Colors.white,
+                                    color: cardBg,
                                     borderRadius: BorderRadius.circular(16),
                                     border: Border.all(
-                                      color: Colors.grey.shade200,
+                                      color: cardBorder,
                                     ),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: Colors.black.withOpacity(0.02),
+                                        color: isDark ? Colors.black.withOpacity(0.3) : Colors.black.withOpacity(0.02),
                                         blurRadius: 4,
                                         offset: const Offset(0, 2),
                                       ),
@@ -374,10 +588,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                   ),
                                   child: Column(
                                     children: [
-                                      const Text(
+                                      Text(
                                         'Ortalama Puan',
                                         style: TextStyle(
-                                          color: Colors.grey,
+                                          color: isDark ? AppColors.darkTextSecondary : Colors.grey,
                                           fontSize: 12,
                                         ),
                                       ),
@@ -411,12 +625,12 @@ class _HomeScreenState extends State<HomeScreen> {
                           Container(
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
-                              color: Colors.white,
+                              color: cardBg,
                               borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: Colors.grey.shade200),
+                              border: Border.all(color: cardBorder),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.02),
+                                  color: isDark ? Colors.black.withOpacity(0.3) : Colors.black.withOpacity(0.02),
                                   blurRadius: 4,
                                   offset: const Offset(0, 2),
                                 ),
@@ -436,19 +650,20 @@ class _HomeScreenState extends State<HomeScreen> {
                                       ),
                                     ),
                                     const SizedBox(height: 4),
-                                    const Text(
+                                    Text(
                                       'Mevcut Bakiye:',
                                       style: TextStyle(
-                                        color: Colors.grey,
+                                        color: isDark ? AppColors.darkTextSecondary : Colors.grey,
                                         fontSize: 12,
                                       ),
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
                                       '$_walletBalance TL',
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontSize: 24,
                                         fontWeight: FontWeight.bold,
+                                        color: isDark ? AppColors.darkPrimary : null,
                                       ),
                                     ),
                                   ],
@@ -456,10 +671,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                 Column(
                                   crossAxisAlignment: CrossAxisAlignment.end,
                                   children: [
-                                    const Text(
+                                    Text(
                                       'Son Alınan Ödeme:',
                                       style: TextStyle(
-                                        color: Colors.grey,
+                                        color: isDark ? AppColors.darkTextSecondary : Colors.grey,
                                         fontSize: 12,
                                       ),
                                     ),
@@ -472,9 +687,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                     ElevatedButton(
                                       onPressed: () {},
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor: const Color(
-                                          0xFF0A49A6,
-                                        ),
+                                        backgroundColor: isDark ? AppColors.darkPrimary : const Color(0xFF111827),
                                         foregroundColor: Colors.white,
                                         minimumSize: Size.zero,
                                         padding: const EdgeInsets.symmetric(
@@ -501,12 +714,12 @@ class _HomeScreenState extends State<HomeScreen> {
                           Container(
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
-                              color: Colors.white,
+                              color: cardBg,
                               borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: Colors.grey.shade200),
+                              border: Border.all(color: cardBorder),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.02),
+                                  color: isDark ? Colors.black.withOpacity(0.3) : Colors.black.withOpacity(0.02),
                                   blurRadius: 4,
                                   offset: const Offset(0, 2),
                                 ),
@@ -517,10 +730,10 @@ class _HomeScreenState extends State<HomeScreen> {
                               children: [
                                 Text(
                                   isEmployer ? 'Son İlanlarım' : 'Son İşlerim',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
-                                    color: Colors.grey,
+                                    color: isDark ? AppColors.darkTextSecondary : Colors.grey,
                                   ),
                                 ),
                                 const SizedBox(height: 12),
@@ -542,16 +755,16 @@ class _HomeScreenState extends State<HomeScreen> {
                                         const SizedBox(height: 4),
                                         Row(
                                           children: [
-                                            const Icon(
+                                            Icon(
                                               Icons.access_time,
-                                              color: Colors.grey,
+                                              color: isDark ? AppColors.darkTextSecondary : Colors.grey,
                                               size: 14,
                                             ),
                                             const SizedBox(width: 4),
                                             Text(
                                               _lastJobSubtitle,
-                                              style: const TextStyle(
-                                                color: Colors.grey,
+                                              style: TextStyle(
+                                                color: isDark ? AppColors.darkTextSecondary : Colors.grey,
                                                 fontSize: 12,
                                               ),
                                             ),
@@ -605,9 +818,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                 style: TextStyle(fontSize: 16),
                               ),
                               style: OutlinedButton.styleFrom(
-                                foregroundColor: const Color(0xFF0A49A6),
-                                side: const BorderSide(
-                                  color: Color(0xFF0A49A6),
+                                foregroundColor: isDark ? AppColors.darkPrimary : AppColors.lightPrimary,
+                                side: BorderSide(
+                                  color: isDark ? AppColors.darkPrimary : AppColors.lightPrimary,
                                 ),
                                 padding: const EdgeInsets.symmetric(
                                   vertical: 16,
@@ -621,143 +834,14 @@ class _HomeScreenState extends State<HomeScreen> {
                           const SizedBox(height: 32),
                         ],
                       ),
-                    ),
-                ),
-              ],
-            ),
-            if (_selectedIndex == 0)
-            Positioned(
-              bottom: 16,
-              right: 16,
-              child: Container(
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF0A49A6),
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF0A49A6).withOpacity(0.4),
-                        blurRadius: 8,
-                        spreadRadius: 2,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: IconButton(
-                    padding: const EdgeInsets.all(12),
-                    iconSize: 28,
-                    icon: const Icon(Icons.tune, color: Colors.white),
-                    onPressed: _showFilterBottomSheet,
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      floatingActionButton: isEmployer
-          ? FloatingActionButton(
-              onPressed: () async {
-                final result = await Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const AddJobScreen()),
-                );
-                _loadUserData();
-                if (result == true) {
-                  setState(() {
-                    _listUpdateKey++;
-                  });
-                }
-              },
-              backgroundColor: const Color(0xFF0A49A6),
-              foregroundColor: Colors.white,
-              elevation: 4,
-              shape: const CircleBorder(),
-              child: const Icon(Icons.add, size: 36),
-            )
-          : null,
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 20,
-              offset: const Offset(0, -5),
-            ),
-          ],
-        ),
-        child: BottomAppBar(
-          padding: EdgeInsets.zero,
-          color: Colors.white,
-          surfaceTintColor: Colors.white,
-          elevation: 0,
-          shape: const AutomaticNotchedShape(
-            RoundedRectangleBorder(
-              borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-            ),
-            //CircularNotchedRectangle(),
-          ),
-          notchMargin: 10.0,
-          clipBehavior: Clip.antiAlias,
-          child: SizedBox(
-            height: 70,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: <Widget>[
-                Expanded(
-                  child: _buildNavItem(
-                    0,
-                    Icons.list_rounded,
-                    isEmployer ? 'İlanlarım' : 'İlanlar',
-                  ),
-                ),
-                if (isEmployer) const SizedBox(width: 48), // FAB Ortası Boşluğu sadece İşveren için
-                if (!isEmployer)
-                  Expanded(
-                    child: _buildNavItem(1, Icons.assignment_turned_in, 'Başvurularım'),
-                  ),
-                Expanded(
-                  child: _buildNavItem(isEmployer ? 1 : 2, Icons.person_outline, 'Profil'),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
+                    );
   }
 
-  Widget _buildTopFilterButton(String title, bool isActive, {VoidCallback? onTap}) {
-    return InkWell(
-      onTap: onTap ?? () {},
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
-        child: Text(
-          title,
-          style: TextStyle(
-            color: isActive ? const Color(0xFF0A49A6) : Colors.grey.shade600,
-            fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
-            fontSize: 15,
-          ),
-        ),
-      ),
-    );
-  }
-
-  IconData _getIconForIndex(int index) {
-    switch (index) {
-      case 0:
-        return Icons.list_alt;
-      case 1:
-        return Icons.person_outline;
-      default:
-        return Icons.help;
-    }
-  }
-
-  Widget _buildNavItem(int index, IconData icon, String label) {
+  Widget _buildNavItem(int index, IconData icon, String label, bool isDark) {
     final isSelected = _selectedIndex == index;
-    final color = isSelected ? const Color(0xFF0A49A6) : Colors.grey.shade600;
+    final color = isSelected 
+        ? (isDark ? AppColors.darkPrimary : const Color(0xFF111827)) 
+        : (isDark ? AppColors.darkTextSecondary : Colors.grey.shade500);
 
     return InkWell(
       onTap: () => _onItemTapped(index),
@@ -768,15 +852,17 @@ class _HomeScreenState extends State<HomeScreen> {
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: color, size: 28),
+            Icon(icon, color: color, size: 24),
             const SizedBox(height: 4),
             Text(
               label,
               style: TextStyle(
                 color: color,
-                fontSize: 12,
+                fontSize: 11,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
               ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
@@ -785,6 +871,13 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showFilterBottomSheet() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? AppColors.darkCard : Colors.white;
+    final textColor = isDark ? Colors.white : const Color(0xFF111827);
+    final secondaryTextColor = isDark ? AppColors.darkTextSecondary : Colors.black54;
+    final tileBg = isDark ? AppColors.darkInput : Colors.grey.shade50;
+    final tileBorder = isDark ? AppColors.darkBorder : Colors.grey.shade300;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -792,18 +885,64 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (ctx) {
         return StatefulBuilder(
           builder: (context, setStateSB) {
+            final hasActiveFilters = _selectedJobFilters.isNotEmpty || _selectedLocationFilters.isNotEmpty;
+
             return Container(
-              height: MediaQuery.of(context).size.height * 0.7,
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.only(topLeft: Radius.circular(32), topRight: Radius.circular(32)),
+              height: MediaQuery.of(context).size.height * 0.75,
+              decoration: BoxDecoration(
+                color: cardBg,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(32),
+                  topRight: Radius.circular(32),
+                ),
               ),
               child: Column(
                 children: [
                   const SizedBox(height: 12),
-                  Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(10))),
-                  const SizedBox(height: 20),
-                  const Text('Filtrele', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF0A49A6))),
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: isDark ? AppColors.darkBorder : Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Filtrele',
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: textColor,
+                          ),
+                        ),
+                        if (hasActiveFilters)
+                          TextButton(
+                            onPressed: () {
+                              setStateSB(() {
+                                _selectedJobFilters.clear();
+                                _selectedLocationFilters.clear();
+                              });
+                              setState(() {
+                                _listUpdateKey++;
+                              });
+                            },
+                            child: Text(
+                              'Temizle',
+                              style: TextStyle(
+                                color: isDark ? AppColors.darkPrimary : Colors.redAccent,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
                   const SizedBox(height: 10),
                   Expanded(
                     child: SingleChildScrollView(
@@ -811,85 +950,106 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const SizedBox(height: 10),
-                          const Text('Meslekler', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87)),
+                          Text(
+                            'Meslekler',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: textColor,
+                            ),
+                          ),
                           const SizedBox(height: 12),
                           InkWell(
                             onTap: () async {
                               await _showMultiSelectDropdown(
-                                context, 
-                                'Meslek', 
-                                _jobTypes, 
-                                _selectedJobFilters, 
+                                context,
+                                'Meslek',
+                                AppConstants.jobTypes,
+                                _selectedJobFilters,
                                 (newSelected) {
                                   setStateSB(() => _selectedJobFilters = newSelected);
                                   setState(() => _listUpdateKey++);
-                                }
+                                },
                               );
                             },
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                               decoration: BoxDecoration(
-                                color: Colors.grey.shade50,
-                                border: Border.all(color: Colors.grey.shade300),
-                                borderRadius: BorderRadius.circular(12)
+                                color: tileBg,
+                                border: Border.all(color: tileBorder),
+                                borderRadius: BorderRadius.circular(12),
                               ),
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text(
-                                    _selectedJobFilters.isEmpty 
-                                        ? 'Meslek Seçin' 
-                                        : '${_selectedJobFilters.length} Meslek Seçildi',
-                                    style: TextStyle(
-                                      color: _selectedJobFilters.isEmpty ? Colors.black54 : Colors.black87,
-                                      fontWeight: _selectedJobFilters.isEmpty ? FontWeight.normal : FontWeight.bold
-                                    )
+                                  Expanded(
+                                    child: Text(
+                                      _selectedJobFilters.isEmpty
+                                          ? 'Meslek Seçin'
+                                          : '${_selectedJobFilters.length} Meslek Seçildi',
+                                      style: TextStyle(
+                                        color: _selectedJobFilters.isEmpty ? secondaryTextColor : textColor,
+                                        fontWeight: _selectedJobFilters.isEmpty ? FontWeight.normal : FontWeight.bold,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                                   ),
-                                  const Icon(Icons.arrow_drop_down, color: Colors.black54),
-                                ]
-                              )
-                            )
+                                  Icon(Icons.arrow_drop_down, color: secondaryTextColor),
+                                ],
+                              ),
+                            ),
                           ),
-                          const SizedBox(height: 32),
-                          const Text('Ankara İlçeleri', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87)),
+                          const SizedBox(height: 28),
+                          Text(
+                            'Ankara İlçeleri',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: textColor,
+                            ),
+                          ),
                           const SizedBox(height: 12),
                           InkWell(
                             onTap: () async {
                               await _showMultiSelectDropdown(
-                                context, 
-                                'İlçe', 
-                                _ankaraDistricts, 
-                                _selectedLocationFilters, 
+                                context,
+                                'İlçe',
+                                AppConstants.ankaraDistricts,
+                                _selectedLocationFilters,
                                 (newSelected) {
                                   setStateSB(() => _selectedLocationFilters = newSelected);
                                   setState(() => _listUpdateKey++);
-                                }
+                                },
                               );
                             },
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                               decoration: BoxDecoration(
-                                color: Colors.grey.shade50,
-                                border: Border.all(color: Colors.grey.shade300),
-                                borderRadius: BorderRadius.circular(12)
+                                color: tileBg,
+                                border: Border.all(color: tileBorder),
+                                borderRadius: BorderRadius.circular(12),
                               ),
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text(
-                                    _selectedLocationFilters.isEmpty 
-                                        ? 'İlçe Seçin' 
-                                        : '${_selectedLocationFilters.length} İlçe Seçildi',
-                                    style: TextStyle(
-                                      color: _selectedLocationFilters.isEmpty ? Colors.black54 : Colors.black87,
-                                      fontWeight: _selectedLocationFilters.isEmpty ? FontWeight.normal : FontWeight.bold
-                                    )
+                                  Expanded(
+                                    child: Text(
+                                      _selectedLocationFilters.isEmpty
+                                          ? 'İlçe Seçin'
+                                          : '${_selectedLocationFilters.length} İlçe Seçildi',
+                                      style: TextStyle(
+                                        color: _selectedLocationFilters.isEmpty ? secondaryTextColor : textColor,
+                                        fontWeight: _selectedLocationFilters.isEmpty ? FontWeight.normal : FontWeight.bold,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                                   ),
-                                  const Icon(Icons.arrow_drop_down, color: Colors.black54),
-                                ]
-                              )
-                            )
+                                  Icon(Icons.arrow_drop_down, color: secondaryTextColor),
+                                ],
+                              ),
+                            ),
                           ),
                         ],
                       ),
@@ -901,23 +1061,28 @@ class _HomeScreenState extends State<HomeScreen> {
                       width: double.infinity,
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF0A49A6),
+                          backgroundColor: isDark ? Colors.white : const Color(0xFF111827),
+                          foregroundColor: isDark ? Colors.black : Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          elevation: 0,
                         ),
                         onPressed: () {
                           Navigator.pop(context);
                         },
-                        child: const Text('Sonuçları Göster', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+                        child: const Text(
+                          'Sonuçları Göster',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
                       ),
                     ),
-                  )
+                  ),
                 ],
               ),
             );
-          }
+          },
         );
-      }
+      },
     );
   }
 
@@ -930,6 +1095,10 @@ class _HomeScreenState extends State<HomeScreen> {
   ) async {
     String searchQuery = '';
     Set<String> localSelected = Set.from(selectedItems);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final dialogBg = isDark ? AppColors.darkCard : Colors.white;
+    final textColor = isDark ? Colors.white : const Color(0xFF111827);
+    final borderColor = isDark ? AppColors.darkBorder : Colors.grey.shade300;
     
     await showDialog(
       context: context,
@@ -938,18 +1107,35 @@ class _HomeScreenState extends State<HomeScreen> {
           builder: (context, setStateSB) {
             final filteredItems = items.where((item) => item.toLowerCase().contains(searchQuery.toLowerCase())).toList();
             return Dialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              backgroundColor: dialogBg,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(color: borderColor),
+              ),
               child: Container(
-                constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.6),
+                constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.65),
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   children: [
                     TextField(
+                      style: TextStyle(color: textColor),
                       decoration: InputDecoration(
                         hintText: '$title Ara',
-                        prefixIcon: const Icon(Icons.search),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                        contentPadding: const EdgeInsets.symmetric(vertical: 0)
+                        hintStyle: TextStyle(color: isDark ? AppColors.darkTextSecondary : Colors.grey.shade500),
+                        prefixIcon: Icon(Icons.search, color: isDark ? AppColors.darkTextSecondary : Colors.grey.shade600),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: borderColor),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: borderColor),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: isDark ? AppColors.darkPrimary : const Color(0xFF111827)),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 12),
                       ),
                       onChanged: (val) => setStateSB(() => searchQuery = val),
                     ),
@@ -959,10 +1145,19 @@ class _HomeScreenState extends State<HomeScreen> {
                         itemCount: filteredItems.length,
                         itemBuilder: (context, index) {
                           final item = filteredItems[index];
+                          final isSelected = localSelected.contains(item);
                           return CheckboxListTile(
                             contentPadding: EdgeInsets.zero,
-                            title: Text(item),
-                            value: localSelected.contains(item),
+                            activeColor: isDark ? AppColors.darkPrimary : const Color(0xFF111827),
+                            checkColor: isDark ? Colors.black : Colors.white,
+                            title: Text(
+                              item,
+                              style: TextStyle(
+                                color: textColor,
+                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                              ),
+                            ),
+                            value: isSelected,
                             onChanged: (val) {
                               setStateSB(() {
                                 if (val == true) localSelected.add(item);
@@ -978,24 +1173,26 @@ class _HomeScreenState extends State<HomeScreen> {
                       width: double.infinity,
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF0A49A6),
+                          backgroundColor: isDark ? Colors.white : const Color(0xFF111827),
+                          foregroundColor: isDark ? Colors.black : Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          elevation: 0,
                         ),
                         onPressed: () {
                           onChanged(localSelected);
                           Navigator.pop(context);
                         },
-                        child: const Text('Seçimleri Onayla', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                      )
+                        child: const Text('Seçimleri Onayla', style: TextStyle(fontWeight: FontWeight.bold)),
+                      ),
                     )
-                  ]
-                )
-              )
+                  ],
+                ),
+              ),
             );
-          }
+          },
         );
-      }
+      },
     );
   }
 }

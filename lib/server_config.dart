@@ -15,11 +15,7 @@ class ServerConfig {
     if (customHost != null && customHost!.isNotEmpty) {
       return customHost!;
     }
-    if (kIsWeb) return '127.0.0.1';
-    if (!kIsWeb && Platform.isAndroid) {
-      return defaultLocalIp;
-    }
-    return '127.0.0.1';
+    return defaultLocalIp;
   }
 
   static String get baseUrl {

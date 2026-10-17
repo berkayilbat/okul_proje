@@ -477,7 +477,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                           child: const Text('İptal'),
                                         ),
                                         ElevatedButton(
-                                          onPressed: () {
+                                          onPressed: () async {
+                                            await AuthService.logout();
+                                            if (!context.mounted) return;
                                             Navigator.pushAndRemoveUntil(
                                               context,
                                               MaterialPageRoute(

@@ -97,8 +97,8 @@ try {
     $conn->exec("SET FOREIGN_KEY_CHECKS = 1;");
 
     // 4. DEMO KULLANICILARINI EKLE
-    // Şifreler: '123' ve geriye dönük 'berkay123.' için Bcrypt hash
-    $hashedPassword = password_hash('123', PASSWORD_BCRYPT);
+    // Şifreler: '123456' ve geriye dönük 'berkay123.' için Bcrypt hash
+    $hashedPassword = password_hash('123456', PASSWORD_BCRYPT);
 
     $userStmt = $conn->prepare("
         INSERT INTO users (
@@ -187,8 +187,8 @@ try {
         "status" => "success",
         "message" => "Örnek veriler ve tablolar başarıyla yüklendi! Demo hazır.",
         "data" => [
-            "employer" => ["phone" => "05445073525", "password" => "123", "role" => "Employer", "name" => "Berkay Yılbat"],
-            "employee" => ["phone" => "05438296484", "password" => "123", "role" => "Employee", "name" => "Berat Taştekin"],
+            "employer" => ["phone" => "05445073525", "password" => "123456", "role" => "Employer", "name" => "Berkay Yılbat"],
+            "employee" => ["phone" => "05438296484", "password" => "123456", "role" => "Employee", "name" => "Berat Taştekin"],
             "jobs_count" => 5,
             "applications_count" => 2
         ]

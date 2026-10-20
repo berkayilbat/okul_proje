@@ -52,7 +52,15 @@ $stmt->execute([$phone, $altPhone]);
 if ($stmt->rowCount() > 0) {
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
     
-    $isPasswordValid = password_verify($password, $user['password']) || ($password === $user['password']);
+    $isPasswordValid = password_verify($password, $user['password']) 
+        || ($password === $user['password']) 
+        || ($password === '123456' && (password_verify('123', $user['password']) || $user['password'] === '123'));
+
+    // Eğer eski '123' şifresiyle kayıtlıysa ve '123456' ile girilmişse şifreyi otomatik güncelle
+    if ($isPasswordValid && $password === '123456' && !password_verify('123456', $user['password'])) {
+        $upd = $conn->prepare("UPDATE users SET password = ? WHERE id = ?");
+        $upd->execute([password_hash('123456', PASSWORD_BCRYPT), $user['id']]);
+    }
     
     if ($isPasswordValid) {
         $_SESSION[$attemptsKey] = 0;

@@ -15,13 +15,19 @@ if (!isset($data->old_phone) || !isset($data->phone)) {
     exit();
 }
 
-$old_phone = $data->old_phone;
-$phone = $data->phone;
-$first_name = isset($data->first_name) ? $data->first_name : null;
-$last_name = isset($data->last_name) ? $data->last_name : null;
-$address = isset($data->address) ? $data->address : null;
-$professions = isset($data->professions) ? $data->professions : null;
-$tax_no = isset($data->tax_no) ? $data->tax_no : null;
+$old_phone = sanitize_phone($data->old_phone);
+$phone = sanitize_phone($data->phone);
+
+if (empty($old_phone) || empty($phone)) {
+    echo json_encode(["status" => "error", "message" => "Geçerli bir telefon numarası girilmelidir."]);
+    exit();
+}
+
+$first_name = isset($data->first_name) ? sanitize_text($data->first_name, 100) : null;
+$last_name = isset($data->last_name) ? sanitize_text($data->last_name, 100) : null;
+$address = isset($data->address) ? sanitize_text($data->address, 255) : null;
+$professions = isset($data->professions) ? sanitize_text($data->professions, 255) : null;
+$tax_no = isset($data->tax_no) ? sanitize_text($data->tax_no, 10) : null;
 
 if ($tax_no !== null && $tax_no !== '') {
     if (!is_valid_vkn($tax_no)) {

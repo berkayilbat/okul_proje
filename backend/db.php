@@ -8,6 +8,7 @@ header("Content-Type: application/json; charset=UTF-8");
 header("X-Content-Type-Options: nosniff");
 header("X-Frame-Options: DENY");
 header("X-XSS-Protection: 1; mode=block");
+header("Content-Security-Policy: default-src 'none'; frame-ancestors 'none';");
 
 if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
@@ -36,6 +37,9 @@ foreach ($configs as $cfg) {
     try {
         $tempConn = new PDO($cfg['dsn'], $username, $cfg['pass']);
         $tempConn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        // Gerçek prepared statements zorunluluğu (SQL Injection koruması)
+        $tempConn->setAttribute(PDO::ATTR_EMULATE_PREPARES, false);
+        $tempConn->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
         $tempConn->exec("CREATE DATABASE IF NOT EXISTS `{$db_name}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;");
         $tempConn->exec("USE `{$db_name}`;");
         $conn = $tempConn;
@@ -50,11 +54,79 @@ if (!$conn) {
     exit();
 }
 
-function sanitize_input($data) {
+/**
+ * Metin girdilerini XSS ve kontrol karakterlerinden arındırır.
+ */
+function sanitize_text($data, $maxLen = null) {
     if (is_null($data)) return null;
-    return htmlspecialchars(trim((string)$data), ENT_QUOTES, 'UTF-8');
+    $str = (string)$data;
+    // Null byte temizleme
+    $str = str_replace(chr(0), '', $str);
+    // Boşluk kırpma
+    $str = trim($str);
+    // HTML etiketlerini ayıkla
+    $str = strip_tags($str);
+    // Özel HTML karakterlerini güvenli entity'e dönüştür
+    $str = htmlspecialchars($str, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    if ($maxLen !== null && $maxLen > 0) {
+        $str = mb_substr($str, 0, $maxLen, 'UTF-8');
+    }
+    return $str;
 }
 
+/**
+ * Geriye dönük uyumluluk için temel sanitization wrapper'ı.
+ */
+function sanitize_input($data) {
+    return sanitize_text($data);
+}
+
+/**
+ * Tamsayı değerleri doğrular ve sınırlandırır.
+ */
+function sanitize_int($data, $default = 0, $min = null, $max = null) {
+    if ($data === null || $data === '') return $default;
+    $filtered = filter_var($data, FILTER_VALIDATE_INT);
+    if ($filtered === false) return $default;
+    if ($min !== null && $filtered < $min) return $min;
+    if ($max !== null && $filtered > $max) return $max;
+    return (int)$filtered;
+}
+
+/**
+ * Ondalıklı/ücret değerlerini doğrular ve float tipine dönüştürür.
+ */
+function sanitize_float($data, $default = 0.0, $min = null, $max = null) {
+    if ($data === null || $data === '') return $default;
+    $cleaned = str_replace(',', '.', trim((string)$data));
+    $filtered = filter_var($cleaned, FILTER_VALIDATE_FLOAT);
+    if ($filtered === false) return $default;
+    if ($min !== null && $filtered < $min) return $min;
+    if ($max !== null && $filtered > $max) return $max;
+    return (float)$filtered;
+}
+
+/**
+ * Telefon numarasını sadece rakamlardan oluşacak şekilde temizler.
+ */
+function sanitize_phone($data) {
+    if (is_null($data)) return '';
+    $digits = preg_replace('/\D/', '', (string)$data);
+    return trim($digits);
+}
+
+/**
+ * Değeri izin verilen beyaz liste (whitelist) içinden doğrular.
+ */
+function sanitize_enum($data, array $allowed, $default = null) {
+    if (is_null($data)) return $default;
+    $val = trim((string)$data);
+    return in_array($val, $allowed, true) ? $val : $default;
+}
+
+/**
+ * Vergi Kimlik Numarası (VKN) algoritma kontrolü (10 haneli).
+ */
 function is_valid_vkn($vkn) {
     if (empty($vkn)) return false;
     $vkn = trim((string)$vkn);

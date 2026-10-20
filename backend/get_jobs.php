@@ -10,13 +10,12 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $data = json_decode(file_get_contents("php://input"));
-
-$action = isset($data->action) ? $data->action : 'all';
+$action = sanitize_enum($data->action ?? null, ['employer_jobs', 'all'], 'all');
 
 try {
     if ($action === 'employer_jobs') {
         // İşverenin kendi açtığı ilanları getirir
-        $employer_phone = $data->employer_phone;
+        $employer_phone = sanitize_phone($data->employer_phone ?? '');
         $stmt = $conn->prepare("SELECT * FROM jobs WHERE employer_phone = ? ORDER BY id DESC");
         $stmt->execute([$employer_phone]);
         $jobs = $stmt->fetchAll(PDO::FETCH_ASSOC);

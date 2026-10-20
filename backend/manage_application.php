@@ -8,14 +8,18 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 $data = json_decode(file_get_contents("php://input"));
 
-// action = 'accept', 'reject', 'start_work', 'complete'
 if (!isset($data->application_id) || !isset($data->action)) {
     echo json_encode(["status" => "error", "message" => "Eksik parametre gönderildi."]);
     exit();
 }
 
-$application_id = intval($data->application_id);
-$action = $data->action;
+$application_id = sanitize_int($data->application_id, 0, 1);
+$action = sanitize_enum($data->action, ['accept', 'reject', 'start_work', 'complete'], null);
+
+if ($application_id <= 0 || $action === null) {
+    echo json_encode(["status" => "error", "message" => "Geçersiz başvuru veya işlem türü."]);
+    exit();
+}
 
 try {
     if ($action === 'accept') {
@@ -49,7 +53,7 @@ try {
             exit();
         }
 
-        $job_id = $application['job_id'];
+        $job_id = (int)$application['job_id'];
         $employee_phone = $application['employee_phone'];
 
         // İlandan ücreti ve işveren telefonunu al
@@ -95,8 +99,6 @@ try {
         } else {
             echo json_encode(["status" => "error", "message" => "İlan bulunamadı."]);
         }
-    } else {
-        echo json_encode(["status" => "error", "message" => "Geçersiz işlem türü."]);
     }
 } catch (Exception $e) {
     echo json_encode(["status" => "error", "message" => "İşlem gerçekleştirilemedi: " . $e->getMessage()]);

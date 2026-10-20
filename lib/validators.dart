@@ -1,3 +1,5 @@
+import 'package:flutter/services.dart';
+
 class Validators {
   static bool isValidPhone(String phone) {
     final digits = phone.replaceAll(RegExp(r'\D'), '');
@@ -20,7 +22,7 @@ class Validators {
 
     bool hasLetter = password.contains(
       RegExp(
-        '[a-zA-Z\\u011F\\u011E\\u00FC\\u00DC\\u015F\\u015E\\u0131\\u0130\\u00F6\\u00D6\\u00E7\\u00C7]',
+        r'[a-zA-Z\u011F\u011E\u00FC\u00DC\u015F\u015E\u0131\u0130\u00F6\u00D6\u00E7\u00C7]',
       ),
     );
     bool hasSpecial = password.contains(
@@ -86,4 +88,80 @@ class Validators {
 
   /// [isValidTaxNumber] için alias (VKN).
   static bool isValidVkn(String vkn) => isValidTaxNumber(vkn);
+
+  // ==================== 1.9 SANITIZATION & SECURITY HELPERS ====================
+
+  /// Metin girdilerini XSS, HTML etiketleri ve null byte'lardan temizler.
+  static String sanitizeText(String? input, {int? maxLength}) {
+    if (input == null) return '';
+    // Null byte ve görünmeyen kontrol karakterlerini kaldır
+    String sanitized = input.replaceAll(RegExp(r'[\u0000-\u0008\u000B\u000C\u000E-\u001F]'), '');
+    // HTML etiketlerini ayıkla
+    sanitized = sanitized.replaceAll(RegExp(r'<[^>]*>'), '');
+    // Çevreleyen boşlukları kırp
+    sanitized = sanitized.trim();
+    // Maksimum uzunluk sınırı
+    if (maxLength != null && maxLength > 0 && sanitized.length > maxLength) {
+      sanitized = sanitized.substring(0, maxLength);
+    }
+    return sanitized;
+  }
+
+  /// Potansiyel XSS veya script enjeksiyon deseni içerip içermediğini kontrol eder.
+  static bool containsPotentialXss(String? input) {
+    if (input == null || input.isEmpty) return false;
+    final lower = input.toLowerCase();
+    final dangerousPatterns = [
+      '<script',
+      '</script',
+      'javascript:',
+      'onerror=',
+      'onload=',
+      'onclick=',
+      'onmouseover=',
+      '<iframe',
+      '<object',
+      '<embed',
+      'expression(',
+      'document.cookie',
+      'window.location',
+    ];
+    for (final pattern in dangerousPatterns) {
+      if (lower.contains(pattern)) return true;
+    }
+    return false;
+  }
+
+  /// Ad / Soyad alanı doğrulama (sadece harf, boşluk ve tire).
+  static bool isValidName(String name) {
+    final trimmed = name.trim();
+    if (trimmed.length < 2 || trimmed.length > 50) return false;
+    // Türkçe ve Latin harfleri, boşluk ve tireye izin verilir
+    return RegExp(
+      r'^[a-zA-Z\u011F\u011E\u00FC\u00DC\u015F\u015E\u0131\u0130\u00F6\u00D6\u00E7\u00C7\s\-]+$',
+    ).hasMatch(trimmed);
+  }
+
+  /// Pozitif yevmiye / ücret doğrulama.
+  static bool isValidWage(String wage) {
+    final cleaned = wage.replaceAll(',', '.').trim();
+    final value = double.tryParse(cleaned);
+    return value != null && value > 0 && value <= 100000;
+  }
+
+  /// Zararlı HTML etiketlerinin yazılmasını engelleyen güvenli metin formatter'ı.
+  static TextInputFormatter get denyHtmlTagFormatter =>
+      FilteringTextInputFormatter.deny(RegExp(r'[<>]'));
+
+  /// Sadece isim karakterlerine izin veren formatter.
+  static TextInputFormatter get nameInputFormatter =>
+      FilteringTextInputFormatter.allow(
+        RegExp(
+          r'[a-zA-Z\u011F\u011E\u00FC\u00DC\u015F\u015E\u0131\u0130\u00F6\u00D6\u00E7\u00C7\s\-]',
+        ),
+      );
+
+  /// Sadece para/ücret girişine izin veren formatter (ondalıklı veya tamsayı).
+  static TextInputFormatter get wageInputFormatter =>
+      FilteringTextInputFormatter.allow(RegExp(r'^\d+[\.,]?\d{0,2}'));
 }

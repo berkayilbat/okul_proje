@@ -12,7 +12,11 @@ if (!isset($data->application_id)) {
     exit();
 }
 
-$application_id = $data->application_id;
+$application_id = sanitize_int($data->application_id, 0, 1);
+if ($application_id <= 0) {
+    echo json_encode(["status" => "error", "message" => "Geçersiz başvuru id."]);
+    exit();
+}
 
 try {
     $stmt = $conn->prepare("SELECT status FROM job_applications WHERE id = ?");

@@ -12,8 +12,13 @@ if (!isset($data->phone)) {
     exit();
 }
 
-$phone = $data->phone;
-$role = isset($data->role) ? $data->role : 'Employee';
+$phone = sanitize_phone($data->phone);
+$role = sanitize_enum($data->role ?? null, ['Employer', 'Employee'], 'Employee');
+
+if (empty($phone)) {
+    echo json_encode(["status" => "error", "message" => "Geçerli bir telefon numarası girin."]);
+    exit();
+}
 
 try {
     $stmt = $conn->prepare("SELECT wallet_balance, average_rating, first_name, last_name, company_name FROM users WHERE phone = ?");

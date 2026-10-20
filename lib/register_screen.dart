@@ -166,14 +166,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     final result = await AuthService.register(
       role: role,
-      firstName: firstName,
-      lastName: _lastNameController.text.trim(),
+      firstName: Validators.sanitizeText(firstName),
+      lastName: Validators.sanitizeText(_lastNameController.text.trim()),
       phone: _cleanPhone,
       password: _passwordController.text,
       birthDate: birthDateStr,
-      tcKimlikNo: _isEmployer ? null : _tcController.text.trim(),
-      companyName: _isEmployer ? _companyController.text.trim() : null,
-      taxNo: _isEmployer ? _taxNoController.text.trim() : null,
+      tcKimlikNo: _isEmployer ? null : Validators.sanitizeText(_tcController.text.trim()),
+      companyName: _isEmployer ? Validators.sanitizeText(_companyController.text.trim()) : null,
+      taxNo: _isEmployer ? Validators.sanitizeText(_taxNoController.text.trim()) : null,
     );
 
     if (!mounted) return;
@@ -596,6 +596,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             // AD ALANI
             TextFormField(
               controller: _firstNameController,
+              inputFormatters: [Validators.nameInputFormatter, LengthLimitingTextInputFormatter(30)],
               maxLength: 30,
               textCapitalization: TextCapitalization.words,
               decoration: const InputDecoration(
@@ -616,6 +617,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             // SOYAD ALANI
             TextFormField(
               controller: _lastNameController,
+              inputFormatters: [Validators.nameInputFormatter, LengthLimitingTextInputFormatter(30)],
               maxLength: 30,
               textCapitalization: TextCapitalization.words,
               decoration: const InputDecoration(
@@ -667,6 +669,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               // ŞİRKET / MEKAN ADI
               TextFormField(
                 controller: _companyController,
+                inputFormatters: [Validators.denyHtmlTagFormatter, LengthLimitingTextInputFormatter(50)],
                 maxLength: 50,
                 decoration: const InputDecoration(
                   labelText: 'Şirket / Mekan Adı',

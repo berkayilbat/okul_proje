@@ -13,7 +13,11 @@ if (!isset($data->job_id)) {
     exit();
 }
 
-$job_id = intval($data->job_id);
+$job_id = sanitize_int($data->job_id, 0, 1);
+if ($job_id <= 0) {
+    echo json_encode(["status" => "error", "message" => "Geçersiz ilan ID."]);
+    exit();
+}
 
 try {
     // Önce bu ilana ait başvuruları temizle

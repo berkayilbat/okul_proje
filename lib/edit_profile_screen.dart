@@ -123,6 +123,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
        return;
     }
 
+    if (!Validators.isValidName(firstName) || !Validators.isValidName(lastName)) {
+       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Ad ve soyad sadece harflerden oluşmalıdır.')));
+       return;
+    }
+
     if (!Validators.isValidPhone(rawPhone)) {
        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Geçerli bir telefon numarası giriniz (Örn: 5XX XXX XX XX).')));
        return;
@@ -162,11 +167,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final result = await AuthService.updateProfile(
       oldPhone: widget.userPhone,
       phone: newPhone,
-      firstName: firstName,
-      lastName: lastName,
-      taxNo: widget.role == 'Employer' ? _taxNoController.text.trim() : null,
-      address: widget.role == 'Employee' ? _addressController.text.trim() : null,
-      professions: widget.role == 'Employee' ? professionsStr : null,
+      firstName: Validators.sanitizeText(firstName),
+      lastName: Validators.sanitizeText(lastName),
+      taxNo: widget.role == 'Employer' ? Validators.sanitizeText(_taxNoController.text.trim()) : null,
+      address: widget.role == 'Employee' ? Validators.sanitizeText(_addressController.text.trim()) : null,
+      professions: widget.role == 'Employee' ? Validators.sanitizeText(professionsStr) : null,
     );
 
     if (!mounted) return;
@@ -230,6 +235,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     Expanded(
                       child: TextField(
                         controller: _firstNameController,
+                        inputFormatters: [Validators.nameInputFormatter, LengthLimitingTextInputFormatter(50)],
                         decoration: const InputDecoration(
                           labelText: 'Ad',
                           border: OutlineInputBorder(),
@@ -241,6 +247,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     Expanded(
                       child: TextField(
                         controller: _lastNameController,
+                        inputFormatters: [Validators.nameInputFormatter, LengthLimitingTextInputFormatter(50)],
                         decoration: const InputDecoration(
                           labelText: 'Soyad',
                           border: OutlineInputBorder(),
@@ -294,6 +301,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   const SizedBox(height: 16),
                   TextField(
                     controller: _addressController,
+                    inputFormatters: [Validators.denyHtmlTagFormatter, LengthLimitingTextInputFormatter(255)],
                     maxLines: 3,
                     decoration: const InputDecoration(
                       labelText: 'Adres',

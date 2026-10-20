@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart';
 import 'constants.dart';
 import 'job_service.dart';
+import 'validators.dart';
 
 class AddJobScreen extends StatefulWidget {
   const AddJobScreen({super.key});
@@ -46,14 +48,17 @@ class _AddJobScreenState extends State<AddJobScreen> {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
       
-      final fullLocation = "Ankara, $_selectedDistrict, ${_locationController.text}";
+      final cleanTitle = Validators.sanitizeText(_titleController.text);
+      final cleanDistrict = Validators.sanitizeText(_selectedDistrict ?? '');
+      final cleanLocationDetail = Validators.sanitizeText(_locationController.text);
+      final fullLocation = "Ankara, $cleanDistrict, $cleanLocationDetail";
       final result = await JobService.addJob(
-        title: _titleController.text,
+        title: cleanTitle,
         location: fullLocation,
-        workingHours: _hoursController.text,
-        wage: _priceController.text,
-        description: _descController.text,
-        dates: _dateController.text,
+        workingHours: Validators.sanitizeText(_hoursController.text),
+        wage: _priceController.text.trim().replaceAll(',', '.'),
+        description: Validators.sanitizeText(_descController.text),
+        dates: Validators.sanitizeText(_dateController.text),
       );
       
       if (!mounted) return;
@@ -348,7 +353,12 @@ class _AddJobScreenState extends State<AddJobScreen> {
                 label: 'Günlük/Saatlik Ücret (TL)',
                 icon: Icons.payments_outlined,
                 keyboardType: TextInputType.number,
-                validator: (val) => val!.isEmpty ? 'Lütfen ücret kısmını girin' : null,
+                inputFormatters: [Validators.wageInputFormatter],
+                validator: (val) {
+                  if (val == null || val.trim().isEmpty) return 'Lütfen ücret kısmını girin';
+                  if (!Validators.isValidWage(val)) return 'Geçerli bir ücret tutarı girin';
+                  return null;
+                },
               ),
               const SizedBox(height: 16),
               _buildModernTextField(
@@ -407,6 +417,7 @@ class _AddJobScreenState extends State<AddJobScreen> {
     TextInputType? keyboardType,
     String? Function(String?)? validator,
     bool readOnly = false,
+    List<TextInputFormatter>? inputFormatters,
     VoidCallback? onTap,
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -435,6 +446,7 @@ class _AddJobScreenState extends State<AddJobScreen> {
         keyboardType: keyboardType,
         validator: validator,
         readOnly: readOnly,
+        inputFormatters: inputFormatters ?? [Validators.denyHtmlTagFormatter],
         onTap: onTap,
         style: TextStyle(color: isDark ? const Color(0xFFF1F5F9) : Colors.black87),
         decoration: InputDecoration(

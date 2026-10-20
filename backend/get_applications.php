@@ -10,12 +10,12 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $data = json_decode(file_get_contents("php://input"));
-$action = isset($data->action) ? $data->action : '';
+$action = sanitize_enum($data->action ?? null, ['employee_apps', 'employer_apps'], '');
 
 try {
     if ($action === 'employee_apps') {
         // Çalışanın başvurduğu ilanları ve başvuru durumlarını getir
-        $employee_phone = isset($data->employee_phone) ? $data->employee_phone : '';
+        $employee_phone = sanitize_phone($data->employee_phone ?? '');
         $stmt = $conn->prepare("
             SELECT 
                 ja.id as application_id, 
@@ -49,7 +49,7 @@ try {
 
     } else if ($action === 'employer_apps') {
         // İşverenin açtığı ilanlara gelen tüm başvurular ve başvuran kişilerin bilgileri
-        $employer_phone = isset($data->employer_phone) ? $data->employer_phone : '';
+        $employer_phone = sanitize_phone($data->employer_phone ?? '');
         $stmt = $conn->prepare("
             SELECT 
                 ja.id as application_id, 

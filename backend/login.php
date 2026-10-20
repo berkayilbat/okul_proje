@@ -16,8 +16,13 @@ if (!isset($data->phone) || !isset($data->password)) {
     exit();
 }
 
-$phone = sanitize_input($data->phone);
-$password = $data->password;
+$phone = sanitize_phone($data->phone);
+$password = (string)$data->password;
+
+if (empty($phone)) {
+    echo json_encode(["status" => "error", "message" => "Geçerli bir telefon numarası girin."]);
+    exit();
+}
 
 if (session_status() === PHP_SESSION_NONE) {
     @session_start();
@@ -36,7 +41,7 @@ if ($attempts >= 5 && (time() - $lastAttemptTime) < 60) {
 
 if ((time() - $lastAttemptTime) >= 60) {
     $_SESSION[$attemptsKey] = 0;
-        reset_rate_limit($conn, get_client_ip(), 'login');
+    reset_rate_limit($conn, get_client_ip(), 'login');
     $attempts = 0;
 }
 

@@ -16,8 +16,13 @@ if (!isset($data->job_id) || !isset($data->employee_phone)) {
     exit();
 }
 
-$job_id = $data->job_id;
-$employee_phone = $data->employee_phone;
+$job_id = sanitize_int($data->job_id, 0, 1);
+$employee_phone = sanitize_phone($data->employee_phone);
+
+if ($job_id <= 0 || empty($employee_phone)) {
+    echo json_encode(["status" => "error", "message" => "Geçersiz ilan veya telefon parametresi."]);
+    exit();
+}
 
 // Check if already applied
 $checkStmt = $conn->prepare("SELECT id FROM job_applications WHERE job_id = ? AND employee_phone = ?");

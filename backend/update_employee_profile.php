@@ -1,12 +1,12 @@
 <?php
 require_once 'db.php';
 
-$phone = isset($_POST['phone']) ? sanitize_input($_POST['phone']) : null;
-$address = isset($_POST['address']) ? sanitize_input($_POST['address']) : null;
-$professions = isset($_POST['professions']) ? sanitize_input($_POST['professions']) : null;
+$phone = isset($_POST['phone']) ? sanitize_phone($_POST['phone']) : '';
+$address = isset($_POST['address']) ? sanitize_text($_POST['address'], 255) : null;
+$professions = isset($_POST['professions']) ? sanitize_text($_POST['professions'], 255) : null;
 
-if (!$phone) {
-    echo json_encode(["status" => "error", "message" => "Telefon numarası eksik."]);
+if (empty($phone)) {
+    echo json_encode(["status" => "error", "message" => "Telefon numarası eksik veya geçersiz."]);
     exit();
 }
 
@@ -58,6 +58,6 @@ try {
 
     echo json_encode(["status" => "success", "message" => "Çalışan profili tamamlandı."]);
 } catch (Exception $e) {
-    echo json_encode(["status" => "error", "message" => "Profil güncellenirken bir hata oluştu."]);
+    echo json_encode(["status" => "error", "message" => "Profil güncellenirken bir hata oluştu: " . $e->getMessage()]);
 }
 ?>

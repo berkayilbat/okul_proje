@@ -15,9 +15,14 @@ if (!isset($data->application_id) || !isset($data->rating)) {
     exit();
 }
 
-$application_id = intval($data->application_id);
-$rating = intval($data->rating);
-$comment = isset($data->comment) ? sanitize_input($data->comment) : '';
+$application_id = sanitize_int($data->application_id, 0, 1);
+$rating = sanitize_int($data->rating, 5, 1, 5);
+$comment = isset($data->comment) ? sanitize_text($data->comment, 1000) : '';
+
+if ($application_id <= 0) {
+    echo json_encode(["status" => "error", "message" => "Geçersiz başvuru ID."]);
+    exit();
+}
 
 try {
     // 1. job_applications tablosunda işverene verilen puan ve yorumu güncelle

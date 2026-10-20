@@ -22,14 +22,19 @@ if (
     exit();
 }
 
-$role = sanitize_input($data->role);
-$first_name = sanitize_input($data->first_name);
-$last_name = sanitize_input($data->last_name);
-$phone = sanitize_input($data->phone);
-$password = password_hash($data->password, PASSWORD_BCRYPT); 
-$tc_kimlik_no = isset($data->tc_kimlik_no) ? sanitize_input($data->tc_kimlik_no) : null;
-$company_name = isset($data->company_name) ? sanitize_input($data->company_name) : null;
-$tax_no = isset($data->tax_no) ? sanitize_input($data->tax_no) : null;
+$role = sanitize_enum($data->role, ['Employer', 'Employee'], 'Employee');
+$first_name = sanitize_text($data->first_name, 100);
+$last_name = sanitize_text($data->last_name, 100);
+$phone = sanitize_phone($data->phone);
+$password = password_hash((string)$data->password, PASSWORD_BCRYPT); 
+$tc_kimlik_no = isset($data->tc_kimlik_no) ? sanitize_text($data->tc_kimlik_no, 11) : null;
+$company_name = isset($data->company_name) ? sanitize_text($data->company_name, 150) : null;
+$tax_no = isset($data->tax_no) ? sanitize_text($data->tax_no, 10) : null;
+
+if (empty($first_name) || empty($last_name) || empty($phone)) {
+    echo json_encode(["status" => "error", "message" => "Ad, soyad ve telefon alanları zorunludur."]);
+    exit();
+}
 
 if ($role === 'Employer') {
     if (empty($tax_no)) {

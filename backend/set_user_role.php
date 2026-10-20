@@ -13,11 +13,11 @@ if (!isset($data->phone) || !isset($data->role)) {
     exit();
 }
 
-$phone = sanitize_input($data->phone);
-$role = sanitize_input($data->role);
+$phone = sanitize_phone($data->phone);
+$role = sanitize_enum($data->role, ['Employer', 'Employee'], null);
 
-if ($role !== 'Employer' && $role !== 'Employee') {
-    echo json_encode(["status" => "error", "message" => "Geçersiz rol seçimi. Rol Employer veya Employee olmalıdır."]);
+if (empty($phone) || $role === null) {
+    echo json_encode(["status" => "error", "message" => "Geçersiz rol veya telefon seçimi."]);
     exit();
 }
 

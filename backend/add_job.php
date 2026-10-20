@@ -16,14 +16,29 @@ if (!isset($data->employer_phone) || !isset($data->title) || !isset($data->locat
     exit();
 }
 
-$employer_phone = sanitize_input($data->employer_phone);
-$title = sanitize_input($data->title);
-$location = sanitize_input($data->location);
-$working_hours = isset($data->working_hours) ? sanitize_input($data->working_hours) : '';
-$wage = sanitize_input($data->wage);
-$description = isset($data->description) ? sanitize_input($data->description) : '';
-$dates = sanitize_input($data->dates);
+$employer_phone = sanitize_phone($data->employer_phone);
+$title = sanitize_text($data->title, 150);
+$location = sanitize_text($data->location, 100);
+$working_hours = isset($data->working_hours) ? sanitize_text($data->working_hours, 50) : '';
+$wage = sanitize_float($data->wage, 0.0, 0.0);
+$description = isset($data->description) ? sanitize_text($data->description, 2000) : '';
+$dates = sanitize_text($data->dates, 100);
 $status = 'open';
+
+if (empty($employer_phone)) {
+    echo json_encode(["status" => "error", "message" => "Geçerli bir işveren telefon numarası gereklidir."]);
+    exit();
+}
+
+if (empty($title)) {
+    echo json_encode(["status" => "error", "message" => "İlan başlığı boş olamaz."]);
+    exit();
+}
+
+if ($wage <= 0) {
+    echo json_encode(["status" => "error", "message" => "Yevmiye tutarı sıfırdan büyük olmalıdır."]);
+    exit();
+}
 
 $stmt = $conn->prepare("INSERT INTO jobs (employer_phone, title, location, working_hours, wage, description, dates, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
 

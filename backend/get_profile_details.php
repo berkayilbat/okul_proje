@@ -12,7 +12,11 @@ if (!isset($data->phone)) {
     exit();
 }
 
-$phone = $data->phone;
+$phone = sanitize_phone($data->phone);
+if (empty($phone)) {
+    echo json_encode(["status" => "error", "message" => "Geçerli bir telefon numarası girin."]);
+    exit();
+}
 
 try {
     $stmt = $conn->prepare("SELECT first_name, last_name, phone, address, professions, tax_no, company_name, tc_kimlik_no FROM users WHERE phone = ?");

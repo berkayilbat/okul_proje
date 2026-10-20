@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'job_service.dart';
 import 'employee_profile_screen.dart';
+import 'job_detail_screen.dart';
+import 'utils/app_page_route.dart';
 import 'qr_generate_screen.dart';
 import 'qr_scan_screen.dart';
 import 'add_job_screen.dart';
@@ -242,7 +244,7 @@ class _JobsListScreenState extends State<JobsListScreen> {
   Future<void> _navigateToCreateJob() async {
     final result = await Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const AddJobScreen()),
+      AppPageRoute.slideUp(const AddJobScreen()),
     );
     if (result == true) {
       _fetchJobs();
@@ -279,6 +281,24 @@ class _JobsListScreenState extends State<JobsListScreen> {
     );
   }
 
+  void _openJobDetail(dynamic job) {
+    final myApp = _applications.where((app) => app['job_id'].toString() == job['id'].toString()).firstOrNull;
+    Navigator.push(
+      context,
+      AppPageRoute.hero(
+        JobDetailScreen(
+          job: job,
+          isEmployer: widget.isEmployer,
+          hasApplied: myApp != null,
+          onApply: () {
+            Navigator.pop(context);
+            _applyForJob(job['id'].toString());
+          },
+        ),
+      ),
+    );
+  }
+
   Widget _buildJobsList(List<dynamic> targetJobs) {
     return ListView.builder(
       padding: const EdgeInsets.all(16),
@@ -310,30 +330,41 @@ class _JobsListScreenState extends State<JobsListScreen> {
             ? null
             : [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: Colors.black.withValues(alpha: 0.05),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
               ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: () => _openJobDetail(job),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Text(
-                    job['title'].toString().toUpperCase(),
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: primaryColor,
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Hero(
+                        tag: 'job-title-${job['id']}',
+                        child: Material(
+                          type: MaterialType.transparency,
+                          child: Text(
+                            job['title'].toString().toUpperCase(),
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: primaryColor,
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
-                ),
                 if (widget.isEmployer && job['status'] == 'open')
                   IconButton(
                     icon: Icon(Icons.delete_outline, color: isDark ? Colors.white70 : Colors.black),
@@ -389,18 +420,24 @@ class _JobsListScreenState extends State<JobsListScreen> {
                     },
                   ),
                 const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.green.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    '${job['wage']}₺',
-                    style: const TextStyle(
-                      color: Colors.green,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
+                Hero(
+                  tag: 'job-wage-${job['id']}',
+                  child: Material(
+                    type: MaterialType.transparency,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.green.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        '${job['wage']}₺',
+                        style: const TextStyle(
+                          color: Colors.green,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -458,6 +495,8 @@ class _JobsListScreenState extends State<JobsListScreen> {
           ],
         ),
       ),
+    ),
+    ),
     );
   }
 
@@ -510,9 +549,7 @@ class _JobsListScreenState extends State<JobsListScreen> {
               onPressed: () async {
                 final res = await Navigator.push(
                   context,
-                  MaterialPageRoute(
-                    builder: (_) => QRGenerateScreen(qrData: 'START|${myApp['application_id']}'),
-                  ),
+                  AppPageRoute.slideUp(QRGenerateScreen(qrData: 'START|${myApp['application_id']}')),
                 );
                 if (res == 'in_progress' || res != null) {
                   _fetchJobs();
@@ -534,7 +571,7 @@ class _JobsListScreenState extends State<JobsListScreen> {
               onPressed: () async {
                 final result = await Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const QRScanScreen()),
+                  AppPageRoute.fadeThrough(const QRScanScreen()),
                 );
                 if (result != null && result.toString() == 'FINISH|${myApp['application_id']}') {
                     bool success = await _manageApplication(myApp['application_id'].toString(), 'complete');
@@ -664,8 +701,8 @@ class _JobsListScreenState extends State<JobsListScreen> {
                         onTap: () {
                           Navigator.push(
                             context,
-                            MaterialPageRoute(
-                              builder: (context) => EmployeeProfileScreen(
+                            AppPageRoute.hero(
+                              EmployeeProfileScreen(
                                 firstName: app['first_name'].toString(),
                                 lastName: app['last_name'].toString(),
                                 phone: app['employee_phone'].toString(),
@@ -678,18 +715,38 @@ class _JobsListScreenState extends State<JobsListScreen> {
                           padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
                           child: Row(
                             children: [
-                              Icon(Icons.person, size: 18, color: primaryColor),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: Text(
-                                  '${app['first_name']} ${app['last_name']}',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold, 
-                                    fontSize: 15, 
-                                    color: primaryColor,
-                                    decoration: TextDecoration.underline,
+                              Hero(
+                                tag: 'employee-avatar-${app['employee_phone']}',
+                                child: CircleAvatar(
+                                  radius: 12,
+                                  backgroundColor: isDark ? const Color(0xFF1E232B) : const Color(0xFF111827).withOpacity(0.1),
+                                  child: Text(
+                                    '${app['first_name']?.toString().isNotEmpty == true ? app['first_name'].toString()[0] : ''}${app['last_name']?.toString().isNotEmpty == true ? app['last_name'].toString()[0] : ''}'.toUpperCase(),
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: primaryColor,
+                                    ),
                                   ),
-                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Hero(
+                                  tag: 'employee-name-${app['employee_phone']}',
+                                  child: Material(
+                                    type: MaterialType.transparency,
+                                    child: Text(
+                                      '${app['first_name']} ${app['last_name']}',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold, 
+                                        fontSize: 15, 
+                                        color: primaryColor,
+                                        decoration: TextDecoration.underline,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
                                 ),
                               ),
                             ],
@@ -754,7 +811,7 @@ class _JobsListScreenState extends State<JobsListScreen> {
                       onPressed: () async {
                         final result = await Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (_) => const QRScanScreen()),
+                          AppPageRoute.fadeThrough(const QRScanScreen()),
                         );
                         
                         if (result != null && result.toString() == 'START|${app['application_id']}') {
@@ -785,9 +842,7 @@ class _JobsListScreenState extends State<JobsListScreen> {
                         // İşveren Bitirme QR'ı oluşturur (FINISH|id)
                         final result = await Navigator.push(
                           context,
-                          MaterialPageRoute(
-                            builder: (_) => QRGenerateScreen(qrData: 'FINISH|${app['application_id']}'),
-                          ),
+                          AppPageRoute.slideUp(QRGenerateScreen(qrData: 'FINISH|${app['application_id']}')),
                         );
                         
                         if (result == 'completed') {

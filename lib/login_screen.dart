@@ -1,3 +1,4 @@
+import 'utils/app_page_route.dart';
 import 'package:flutter/material.dart';
 import 'auth_service.dart';
 import 'register_screen.dart';
@@ -249,9 +250,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (role.isEmpty) {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(
-            builder: (_) => RoleSelectionScreen(phone: phone),
-          ),
+          AppPageRoute.slideRight(RoleSelectionScreen(phone: phone)),
         );
         return;
       }
@@ -260,7 +259,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (role == 'Employee' && isComplete == 0) {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => const EmployeeOnboardingScreen()),
+          AppPageRoute.slideRight(const EmployeeOnboardingScreen()),
         );
         return;
       }
@@ -268,7 +267,7 @@ class _LoginScreenState extends State<LoginScreen> {
       // 3. ROLÜ BELLİ İSE -> DOĞRUDAN İLGİLİ ANA SAYFA (İŞVEREN VEYA ÇALIŞAN)
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => HomeScreen(role: role)),
+        AppPageRoute.fadeThrough(HomeScreen(role: role)),
       );
     } else {
       // Giriş Başarısız
@@ -283,9 +282,7 @@ class _LoginScreenState extends State<LoginScreen> {
         if (!mounted) return;
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(
-            builder: (_) => RoleSelectionScreen(phone: phone),
-          ),
+          AppPageRoute.slideRight(RoleSelectionScreen(phone: phone)),
         );
         return;
       }
@@ -751,7 +748,7 @@ class _LoginScreenState extends State<LoginScreen> {
               TextButton(
                 onPressed: () => Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const RegisterScreen()),
+                  AppPageRoute.slideRight(const RegisterScreen()),
                 ),
                 child: Text.rich(
                   TextSpan(

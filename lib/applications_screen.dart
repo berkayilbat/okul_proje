@@ -1,3 +1,4 @@
+import 'utils/app_page_route.dart';
 import 'package:flutter/material.dart';
 import 'job_service.dart';
 import 'qr_generate_screen.dart';
@@ -285,9 +286,7 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
                     // İşe Başlama QR: START|id
                     final res = await Navigator.push(
                       context,
-                      MaterialPageRoute(
-                        builder: (_) => QRGenerateScreen(qrData: 'START|${app['application_id']}'),
-                      ),
+                      AppPageRoute.slideUp(QRGenerateScreen(qrData: 'START|${app['application_id']}')),
                     );
                     if (res == 'in_progress' || res != null) {
                       _fetchApplications();
@@ -311,7 +310,7 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
                     // İşçi, işverenin oluşturduğu FINISH|id barkodunu arıyor
                     final result = await Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const QRScanScreen()),
+                      AppPageRoute.fadeThrough(const QRScanScreen()),
                     );
                     
                     if (result != null && result.toString() == 'FINISH|${app['application_id']}') {

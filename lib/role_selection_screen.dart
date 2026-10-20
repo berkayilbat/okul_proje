@@ -1,3 +1,4 @@
+import 'utils/app_page_route.dart';
 import 'package:flutter/material.dart';
 import 'auth_service.dart';
 import 'widgets/app_snackbar.dart';
@@ -34,13 +35,13 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
       if (_selectedRole == 'Employer') {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => const HomeScreen(role: 'Employer')),
+          AppPageRoute.fadeThrough(const HomeScreen(role: 'Employer')),
         );
       } else {
         // Çalışan için onboarding ekranı
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => const EmployeeOnboardingScreen()),
+          AppPageRoute.slideRight(const EmployeeOnboardingScreen()),
         );
       }
     } else {

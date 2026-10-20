@@ -1,3 +1,4 @@
+import 'utils/app_page_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'constants.dart';
@@ -297,7 +298,7 @@ class _HomeScreenState extends State<HomeScreen> {
               onPressed: () async {
                 final result = await Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const AddJobScreen()),
+                  AppPageRoute.slideUp(const AddJobScreen()),
                 );
                 _loadUserData();
                 if (result == true) {
@@ -821,8 +822,8 @@ class _HomeScreenState extends State<HomeScreen> {
                               onPressed: () async {
                                 final newPhone = await Navigator.push(
                                   context,
-                                  MaterialPageRoute(
-                                    builder: (_) => EditProfileScreen(
+                                  AppPageRoute.fadeThrough(
+                                    EditProfileScreen(
                                       userPhone: _userPhone,
                                       role: widget.role,
                                     ),

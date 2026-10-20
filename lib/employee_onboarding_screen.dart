@@ -1,3 +1,4 @@
+import 'utils/app_page_route.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -62,7 +63,7 @@ class _EmployeeOnboardingScreenState extends State<EmployeeOnboardingScreen> {
 
     if (result['status'] == 'success') {
       AppSnackbar.showSuccess(context, 'Profiliniz başarıyla oluşturuldu!');
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const HomeScreen(role: 'Employee')));
+      Navigator.pushReplacement(context, AppPageRoute.fadeThrough(const HomeScreen(role: 'Employee')));
     } else {
       AppSnackbar.showError(
         context,

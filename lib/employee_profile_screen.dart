@@ -71,26 +71,35 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
           children: [
             const SizedBox(height: 20),
             Center(
-              child: CircleAvatar(
-                radius: 60,
-                backgroundColor: isDark ? const Color(0xFF1E232B) : const Color(0xFF111827).withOpacity(0.1),
-                child: Text(
-                  initials,
-                  style: TextStyle(
-                    fontSize: 40,
-                    fontWeight: FontWeight.bold,
-                    color: primaryColor,
+              child: Hero(
+                tag: 'employee-avatar-${widget.phone}',
+                child: CircleAvatar(
+                  radius: 60,
+                  backgroundColor: isDark ? const Color(0xFF1E232B) : const Color(0xFF111827).withOpacity(0.1),
+                  child: Text(
+                    initials,
+                    style: TextStyle(
+                      fontSize: 40,
+                      fontWeight: FontWeight.bold,
+                      color: primaryColor,
+                    ),
                   ),
                 ),
               ),
             ),
             const SizedBox(height: 20),
-            Text(
-              '${widget.firstName} ${widget.lastName}',
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                color: primaryColor,
+            Hero(
+              tag: 'employee-name-${widget.phone}',
+              child: Material(
+                type: MaterialType.transparency,
+                child: Text(
+                  '${widget.firstName} ${widget.lastName}',
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: primaryColor,
+                  ),
+                ),
               ),
             ),
             const SizedBox(height: 8),

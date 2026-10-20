@@ -1,3 +1,4 @@
+import 'widgets/app_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'dart:async';
@@ -124,12 +125,7 @@ class _QRGenerateScreenState extends State<QRGenerateScreen> {
               InkWell(
                 onTap: () {
                   Clipboard.setData(ClipboardData(text: widget.qrData));
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Kod panoya kopyalandı!'),
-                      duration: Duration(seconds: 1),
-                    ),
-                  );
+                  AppToast.showSuccess(context, 'Kod panoya kopyalandı!');
                 },
                 borderRadius: BorderRadius.circular(12),
                 child: Container(

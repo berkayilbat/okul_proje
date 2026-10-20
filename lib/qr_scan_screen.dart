@@ -1,3 +1,4 @@
+import 'widgets/app_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
@@ -33,12 +34,7 @@ class _QRScanScreenState extends State<QRScanScreen> {
       _isScanned = true;
     });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Taranan Kod: $code'),
-        backgroundColor: Colors.green,
-      ),
-    );
+    AppToast.showSuccess(context, 'Taranan Kod: $code');
 
     Future.delayed(const Duration(milliseconds: 300), () {
       if (mounted) {

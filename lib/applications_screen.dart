@@ -1,3 +1,4 @@
+import 'widgets/app_toast.dart';
 import 'utils/app_page_route.dart';
 import 'package:flutter/material.dart';
 import 'job_service.dart';
@@ -78,19 +79,15 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
     if (!mounted) return false;
     Navigator.pop(context);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(result['message'] ?? 'İşlem yapıldı'),
-        backgroundColor: result['status'] == 'success' ? Colors.green : Colors.red,
-        action: result['status'] != 'success' && result['is_network_error'] == true
-            ? SnackBarAction(
-                label: 'Yeniden Dene',
-                textColor: Colors.white,
-                onPressed: () => _manageApplication(id, action),
-              )
-            : null,
-      ),
-    );
+    if (result['status'] == 'success') {
+      AppToast.showSuccess(context, result['message'] ?? 'İşlem yapıldı');
+    } else {
+      AppToast.showError(
+        context,
+        result['message'] ?? 'İşlem başarısız',
+        onRetry: result['is_network_error'] == true ? () => _manageApplication(id, action) : null,
+      );
+    }
     if (result['status'] == 'success') {
       _fetchApplications();
       return true;
@@ -319,9 +316,7 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
                            _showRatingDialog(app['application_id'].toString(), app);
                         }
                     } else if (result != null) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Yanlış veya Geçersiz QR kod!'), backgroundColor: Colors.red),
-                        );
+                        AppToast.showError(context, 'Yanlış veya Geçersiz QR kod!');
                     }
                   },
                 ),
@@ -435,12 +430,11 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
       onSubmit: (rating, comment) async {
         final res = await JobService.submitEmployerReview(applicationId, rating, comment);
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(res['message'] ?? 'İşlem sonucu'),
-            backgroundColor: res['status'] == 'success' ? Colors.green : Colors.red,
-          ),
-        );
+        if (res['status'] == 'success') {
+          AppToast.showSuccess(context, res['message'] ?? 'Değerlendirme kaydedildi');
+        } else {
+          AppToast.showError(context, res['message'] ?? 'Hata oluştu');
+        }
         if (res['status'] == 'success') {
           _fetchApplications();
         }

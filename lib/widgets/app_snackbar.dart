@@ -1,24 +1,34 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import 'app_toast.dart';
 
 enum SnackBarVariant { success, error, warning, info }
 
+/// 2.7 — Geri Bildirim Sistemi Köprüsü
+/// Varsayılan olarak modern Floating Top Toast (`AppToast`) gösterir.
+/// İstenirse `useToast = false` yapılarak klasik SnackBar moduna geçilebilir.
 class AppSnackbar {
-  /// Başarılı işlem bildirimi (Yeşil, Onay İkonu)
+  static bool useToast = true;
+
+  /// Başarılı işlem bildirimi
   static void showSuccess(
     BuildContext context,
     String message, {
     Duration duration = const Duration(seconds: 3),
   }) {
-    _show(
-      context: context,
-      message: message,
-      variant: SnackBarVariant.success,
-      duration: duration,
-    );
+    if (useToast) {
+      AppToast.showSuccess(context, message, duration: duration);
+    } else {
+      _show(
+        context: context,
+        message: message,
+        variant: SnackBarVariant.success,
+        duration: duration,
+      );
+    }
   }
 
-  /// Hata bildirimi (Kırmızı, Hata İkonu, İsteğe bağlı Yeniden Dene butonu)
+  /// Hata bildirimi (İsteğe bağlı Yeniden Dene butonu)
   static void showError(
     BuildContext context,
     String message, {
@@ -26,42 +36,60 @@ class AppSnackbar {
     String retryLabel = 'Yeniden Dene',
     Duration duration = const Duration(seconds: 4),
   }) {
-    _show(
-      context: context,
-      message: message,
-      variant: SnackBarVariant.error,
-      onRetry: onRetry,
-      retryLabel: retryLabel,
-      duration: duration,
-    );
+    if (useToast) {
+      AppToast.showError(
+        context,
+        message,
+        onRetry: onRetry,
+        retryLabel: retryLabel,
+        duration: duration,
+      );
+    } else {
+      _show(
+        context: context,
+        message: message,
+        variant: SnackBarVariant.error,
+        onRetry: onRetry,
+        retryLabel: retryLabel,
+        duration: duration,
+      );
+    }
   }
 
-  /// Uyarı veya Form Doğrulama uyarısı (Turuncu/Amber, Uyarı İkonu)
+  /// Uyarı bildirimi
   static void showWarning(
     BuildContext context,
     String message, {
     Duration duration = const Duration(seconds: 3),
   }) {
-    _show(
-      context: context,
-      message: message,
-      variant: SnackBarVariant.warning,
-      duration: duration,
-    );
+    if (useToast) {
+      AppToast.showWarning(context, message, duration: duration);
+    } else {
+      _show(
+        context: context,
+        message: message,
+        variant: SnackBarVariant.warning,
+        duration: duration,
+      );
+    }
   }
 
-  /// Bilgilendirme bildirimi (Mavi/Koyu Slate, Bilgi İkonu)
+  /// Bilgilendirme bildirimi
   static void showInfo(
     BuildContext context,
     String message, {
     Duration duration = const Duration(seconds: 3),
   }) {
-    _show(
-      context: context,
-      message: message,
-      variant: SnackBarVariant.info,
-      duration: duration,
-    );
+    if (useToast) {
+      AppToast.showInfo(context, message, duration: duration);
+    } else {
+      _show(
+        context: context,
+        message: message,
+        variant: SnackBarVariant.info,
+        duration: duration,
+      );
+    }
   }
 
   static void _show({

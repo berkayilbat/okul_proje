@@ -5,6 +5,14 @@ import 'package:my_app/theme/app_theme.dart';
 
 void main() {
   group('AppSnackbar Tests', () {
+    setUp(() {
+      AppSnackbar.useToast = false;
+    });
+
+    tearDown(() {
+      AppSnackbar.useToast = true;
+    });
+
     testWidgets('shows success snackbar with correct icon and text', (tester) async {
       await tester.pumpWidget(
         MaterialApp(

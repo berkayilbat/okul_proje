@@ -1,3 +1,4 @@
+import 'widgets/app_toast.dart';
 import 'theme/app_theme.dart';
 import 'utils/job_helpers.dart';
 import 'package:flutter/material.dart';
@@ -87,19 +88,15 @@ class _JobsListScreenState extends State<JobsListScreen> {
     if (!mounted) return;
     Navigator.pop(context); // Close loading
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(result['message'] ?? (result['status'] == 'success' ? 'Başvuru başarılı!' : 'Bir hata oluştu')),
-        backgroundColor: result['status'] == 'success' ? Colors.green : Colors.red,
-        action: result['status'] != 'success' && result['is_network_error'] == true
-            ? SnackBarAction(
-                label: 'Yeniden Dene',
-                textColor: Colors.white,
-                onPressed: () => _applyForJob(jobId),
-              )
-            : null,
-      ),
-    );
+    if (result['status'] == 'success') {
+      AppToast.showSuccess(context, result['message'] ?? 'Başvuru başarılı!');
+    } else {
+      AppToast.showError(
+        context,
+        result['message'] ?? 'Bir hata oluştu',
+        onRetry: result['is_network_error'] == true ? () => _applyForJob(jobId) : null,
+      );
+    }
     if (result['status'] == 'success') {
       _fetchJobs();
     }
@@ -115,19 +112,15 @@ class _JobsListScreenState extends State<JobsListScreen> {
     if (!mounted) return false;
     Navigator.pop(context);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(result['message'] ?? 'İşlem yapıldı'),
-        backgroundColor: result['status'] == 'success' ? Colors.green : Colors.red,
-        action: result['status'] != 'success' && result['is_network_error'] == true
-            ? SnackBarAction(
-                label: 'Yeniden Dene',
-                textColor: Colors.white,
-                onPressed: () => _manageApplication(id, action),
-              )
-            : null,
-      ),
-    );
+    if (result['status'] == 'success') {
+      AppToast.showSuccess(context, result['message'] ?? 'İşlem yapıldı');
+    } else {
+      AppToast.showError(
+        context,
+        result['message'] ?? 'İşlem başarısız',
+        onRetry: result['is_network_error'] == true ? () => _manageApplication(id, action) : null,
+      );
+    }
     if (result['status'] == 'success') {
       _fetchJobs();
       return true;
@@ -142,12 +135,11 @@ class _JobsListScreenState extends State<JobsListScreen> {
       onSubmit: (rating, comment) async {
         final result = await JobService.submitReview(applicationId, rating, comment);
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(result['message'] ?? (result['status'] == 'success' ? 'Değerlendirme kaydedildi!' : 'Hata oluştu')),
-            backgroundColor: result['status'] == 'success' ? Colors.green : Colors.red,
-          ),
-        );
+        if (result['status'] == 'success') {
+          AppToast.showSuccess(context, result['message'] ?? 'Değerlendirme kaydedildi!');
+        } else {
+          AppToast.showError(context, result['message'] ?? 'Hata oluştu');
+        }
         if (result['status'] == 'success') {
           _fetchJobs();
         }
@@ -162,12 +154,11 @@ class _JobsListScreenState extends State<JobsListScreen> {
       onSubmit: (rating, comment) async {
         final res = await JobService.submitEmployerReview(applicationId, rating, comment);
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(res['message'] ?? 'İşlem sonucu'),
-            backgroundColor: res['status'] == 'success' ? Colors.green : Colors.red,
-          ),
-        );
+        if (res['status'] == 'success') {
+          AppToast.showSuccess(context, res['message'] ?? 'İşlem tamamlandı');
+        } else {
+          AppToast.showError(context, res['message'] ?? 'Hata oluştu');
+        }
         if (res['status'] == 'success') {
           _fetchJobs();
         }
@@ -383,12 +374,11 @@ class _JobsListScreenState extends State<JobsListScreen> {
               if (!mounted) return;
               Navigator.pop(context); // Loading'i kapat
               
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(result['message'] ?? 'İşlem tamamlandı'),
-                  backgroundColor: result['status'] == 'success' ? Colors.green : Colors.red,
-                ),
-              );
+              if (result['status'] == 'success') {
+                AppToast.showSuccess(context, result['message'] ?? 'İlan başarıyla silindi');
+              } else {
+                AppToast.showError(context, result['message'] ?? 'İlan silinemedi');
+              }
               
               if (result['status'] == 'success') {
                 _fetchJobs();
@@ -700,9 +690,7 @@ class _JobsListScreenState extends State<JobsListScreen> {
                     }
                 } else if (result != null) {
                     if (!mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Yanlış veya Geçersiz QR kod!'), backgroundColor: Colors.red),
-                    );
+                    AppToast.showError(context, 'Yanlış veya Geçersiz QR kod!');
                 }
               },
             ),

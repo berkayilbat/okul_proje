@@ -1,3 +1,4 @@
+import 'utils/job_helpers.dart';
 import 'utils/app_page_route.dart';
 import 'package:flutter/material.dart';
 import 'theme/app_theme.dart';
@@ -69,28 +70,73 @@ class JobDetailScreen extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Expanded(
-                              child: Hero(
-                                tag: 'job-title-$jobId',
-                                flightShuttleBuilder: AppHeroHelper.flightShuttleBuilder,
-                                child: Material(
-                                  type: MaterialType.transparency,
-                                  child: Text(
-                                    title.toUpperCase(),
-                                    style: TextStyle(
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.bold,
-                                      color: primaryColor,
-                                      height: 1.25,
-                                    ),
-                                  ),
+                            Container(
+                              width: 48,
+                              height: 48,
+                              margin: const EdgeInsets.only(right: 14),
+                              decoration: BoxDecoration(
+                                color: isDark ? const Color(0xFF1E232B) : const Color(0xFFF1F5F9),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: isDark ? const Color(0xFF282F3A) : const Color(0xFFE2E8F0),
                                 ),
                               ),
+                              child: Icon(
+                                JobCategoryHelper.getCategoryIcon(title),
+                                color: primaryColor,
+                                size: 24,
+                              ),
                             ),
-                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Hero(
+                                    tag: 'job-title-$jobId',
+                                    flightShuttleBuilder: AppHeroHelper.flightShuttleBuilder,
+                                    child: Material(
+                                      type: MaterialType.transparency,
+                                      child: Text(
+                                        title.toUpperCase(),
+                                        style: TextStyle(
+                                          fontSize: 19,
+                                          fontWeight: FontWeight.bold,
+                                          color: primaryColor,
+                                          height: 1.25,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    children: [
+                                      Text(
+                                        'Yömyeci Onaylı',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: textSecondary,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      const Icon(Icons.star_rounded, size: 14, color: AppColors.star),
+                                      const SizedBox(width: 2),
+                                      Text(
+                                        '4.9',
+                                        style: TextStyle(
+                                          fontSize: 11.5,
+                                          fontWeight: FontWeight.bold,
+                                          color: isDark ? const Color(0xFFFBBF24) : const Color(0xFFD97706),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 10),
                             Hero(
                               tag: 'job-wage-$jobId',
                               flightShuttleBuilder: AppHeroHelper.flightShuttleBuilder,
@@ -99,16 +145,41 @@ class JobDetailScreen extends StatelessWidget {
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                                   decoration: BoxDecoration(
-                                    color: Colors.green.withValues(alpha: 0.12),
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  child: Text(
-                                    '$wage₺',
-                                    style: const TextStyle(
-                                      color: Colors.green,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 18,
+                                    color: isDark
+                                        ? const Color(0xFF10B981).withValues(alpha: 0.14)
+                                        : const Color(0xFFECFDF5),
+                                    borderRadius: BorderRadius.circular(14),
+                                    border: Border.all(
+                                      color: isDark
+                                          ? const Color(0xFF10B981).withValues(alpha: 0.3)
+                                          : const Color(0xFFA7F3D0),
                                     ),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        '$wage₺',
+                                        style: TextStyle(
+                                          color: isDark ? const Color(0xFF34D399) : const Color(0xFF059669),
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 20,
+                                          height: 1.1,
+                                          letterSpacing: -0.3,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        'GÜNLÜK NET',
+                                        style: TextStyle(
+                                          color: isDark ? const Color(0xFF34D399) : const Color(0xFF059669),
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 10,
+                                          letterSpacing: 0.3,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ),

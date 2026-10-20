@@ -1,3 +1,5 @@
+import 'theme/app_theme.dart';
+import 'utils/job_helpers.dart';
 import 'package:flutter/material.dart';
 import 'job_service.dart';
 import 'employee_profile_screen.dart';
@@ -311,13 +313,100 @@ class _JobsListScreenState extends State<JobsListScreen> {
     );
   }
 
+  Widget _buildMetaChip({
+    required IconData icon,
+    required String label,
+    required bool isDark,
+    Color? iconColor,
+    Color? textColor,
+    Color? bgColor,
+    Color? borderColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: bgColor ?? (isDark ? const Color(0xFF1E232B) : const Color(0xFFF1F5F9)),
+        borderRadius: BorderRadius.circular(9),
+        border: Border.all(
+          color: borderColor ?? (isDark ? const Color(0xFF282F3A) : const Color(0xFFE2E8F0)),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: iconColor ?? (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B))),
+          const SizedBox(width: 5),
+          Flexible(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: textColor ?? (isDark ? const Color(0xFFCBD5E1) : const Color(0xFF334155)),
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDeleteJobDialog(dynamic job) {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        title: const Text('İlanı Sil'),
+        content: const Text('Bu ilanı silmek istediğinize emin misiniz?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('İptal'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade50,
+              foregroundColor: Colors.red,
+            ),
+            onPressed: () async {
+              Navigator.pop(dialogContext); // Dialog'u kapat
+              
+              // Yükleme göster
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (_) => const Center(child: CircularProgressIndicator()),
+              );
+              
+              final result = await JobService.deleteJob(job['id'].toString());
+              
+              if (!mounted) return;
+              Navigator.pop(context); // Loading'i kapat
+              
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(result['message'] ?? 'İşlem tamamlandı'),
+                  backgroundColor: result['status'] == 'success' ? Colors.green : Colors.red,
+                ),
+              );
+              
+              if (result['status'] == 'success') {
+                _fetchJobs();
+              }
+            },
+            child: const Text('Sil'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildJobCard(dynamic job) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cardBg = isDark ? const Color(0xFF16191E) : Colors.white;
     final cardBorder = isDark ? const Color(0xFF282F3A) : Colors.transparent;
     final primaryColor = isDark ? const Color(0xFF60A5FA) : const Color(0xFF111827);
     final textSecondary = isDark ? const Color(0xFF94A3B8) : Colors.grey.shade600;
-    final textSub = isDark ? const Color(0xFFCBD5E1) : Colors.grey.shade700;
     final textBody = isDark ? const Color(0xFFE2E8F0) : Colors.grey.shade800;
 
     return Container(
@@ -347,159 +436,185 @@ class _JobsListScreenState extends State<JobsListScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Kategori İkon Squircle
+                    Container(
+                      width: 44,
+                      height: 44,
+                      margin: const EdgeInsets.only(right: 12),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF1E232B) : const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isDark ? const Color(0xFF282F3A) : const Color(0xFFE2E8F0),
+                        ),
+                      ),
+                      child: Icon(
+                        JobCategoryHelper.getCategoryIcon(job['title'].toString()),
+                        color: primaryColor,
+                        size: 22,
+                      ),
+                    ),
+                    // Başlık ve Güvenilirlik Alt Metni
                     Expanded(
-                      child: Hero(
-                        tag: 'job-title-${job['id']}',
-                        createRectTween: AppHeroHelper.fadeInPlaceRectTween,
-                        flightShuttleBuilder: AppHeroHelper.flightShuttleBuilder,
-                        placeholderBuilder: (context, heroSize, child) => child,
-                        child: Material(
-                          type: MaterialType.transparency,
-                          child: Text(
-                            job['title'].toString().toUpperCase(),
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: primaryColor,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Hero(
+                            tag: 'job-title-${job['id']}',
+                            createRectTween: AppHeroHelper.fadeInPlaceRectTween,
+                            flightShuttleBuilder: AppHeroHelper.flightShuttleBuilder,
+                            placeholderBuilder: (context, heroSize, child) => child,
+                            child: Material(
+                              type: MaterialType.transparency,
+                              child: Text(
+                                job['title'].toString().toUpperCase(),
+                                style: TextStyle(
+                                  fontSize: 16.5,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: -0.2,
+                                  color: primaryColor,
+                                  height: 1.25,
+                                ),
+                              ),
                             ),
+                          ),
+                          const SizedBox(height: 3),
+                          Row(
+                            children: [
+                              Text(
+                                'Yömyeci Onaylı',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: textSecondary,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              const Icon(Icons.star_rounded, size: 14, color: AppColors.star),
+                              const SizedBox(width: 2),
+                              Text(
+                                '4.9',
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: isDark ? const Color(0xFFFBBF24) : const Color(0xFFD97706),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    // Ücret Vurgusu Mega-Rozeti
+                    Hero(
+                      tag: 'job-wage-${job['id']}',
+                      createRectTween: AppHeroHelper.fadeInPlaceRectTween,
+                      flightShuttleBuilder: AppHeroHelper.flightShuttleBuilder,
+                      placeholderBuilder: (context, heroSize, child) => child,
+                      child: Material(
+                        type: MaterialType.transparency,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? const Color(0xFF10B981).withValues(alpha: 0.14)
+                                : const Color(0xFFECFDF5),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: isDark
+                                  ? const Color(0xFF10B981).withValues(alpha: 0.3)
+                                  : const Color(0xFFA7F3D0),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                '${job['wage']}₺',
+                                style: TextStyle(
+                                  color: isDark ? const Color(0xFF34D399) : const Color(0xFF059669),
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 18,
+                                  height: 1.1,
+                                  letterSpacing: -0.3,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'GÜNLÜK NET',
+                                style: TextStyle(
+                                  color: isDark ? const Color(0xFF34D399) : const Color(0xFF059669),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 9.5,
+                                  letterSpacing: 0.3,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
                     ),
-                if (widget.isEmployer && job['status'] == 'open')
-                  IconButton(
-                    icon: Icon(Icons.delete_outline, color: isDark ? Colors.white70 : Colors.black),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    onPressed: () {
-                      showDialog(
-                        context: context,
-                        builder: (BuildContext dialogContext) => AlertDialog(
-                          title: const Text('İlanı Sil'),
-                          content: const Text('Bu ilanı silmek istediğinize emin misiniz?'),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(dialogContext),
-                              child: const Text('İptal'),
-                            ),
-                            ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.red.shade50,
-                                foregroundColor: Colors.red,
-                              ),
-                              onPressed: () async {
-                                Navigator.pop(dialogContext); // Dialog'u kapat
-                                
-                                // Yükleme göster
-                                showDialog(
-                                  context: context,
-                                  barrierDismissible: false,
-                                  builder: (_) => const Center(child: CircularProgressIndicator()),
-                                );
-                                
-                                final result = await JobService.deleteJob(job['id'].toString());
-                                
-                                if (!mounted) return;
-                                Navigator.pop(context); // Loading'i kapat
-                                
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(result['message'] ?? 'İşlem tamamlandı'),
-                                    backgroundColor: result['status'] == 'success' ? Colors.green : Colors.red,
-                                  ),
-                                );
-                                
-                                if (result['status'] == 'success') {
-                                  _fetchJobs();
-                                }
-                              },
-                              child: const Text('Sil'),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                const SizedBox(width: 8),
-                Hero(
-                  tag: 'job-wage-${job['id']}',
-                  createRectTween: AppHeroHelper.fadeInPlaceRectTween,
-                  flightShuttleBuilder: AppHeroHelper.flightShuttleBuilder,
-                  placeholderBuilder: (context, heroSize, child) => child,
-                  child: Material(
-                    type: MaterialType.transparency,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: Colors.green.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(20),
+                    if (widget.isEmployer && job['status'] == 'open') ...[
+                      const SizedBox(width: 4),
+                      IconButton(
+                        icon: Icon(Icons.delete_outline, color: isDark ? Colors.white70 : Colors.black54, size: 20),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        onPressed: () => _showDeleteJobDialog(job),
                       ),
-                      child: Text(
-                        '${job['wage']}₺',
-                        style: const TextStyle(
-                          color: Colors.green,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 14),
+                // Metadata Çipleri Grid
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _buildMetaChip(
+                      icon: Icons.location_on_rounded,
+                      label: job['location'].toString(),
+                      isDark: isDark,
+                      iconColor: isDark ? const Color(0xFF60A5FA) : const Color(0xFF2563EB),
                     ),
-                  ),
+                    _buildMetaChip(
+                      icon: Icons.access_time_rounded,
+                      label: job['working_hours'].toString(),
+                      isDark: isDark,
+                    ),
+                    _buildMetaChip(
+                      icon: Icons.calendar_today_rounded,
+                      label: job['dates'].toString(),
+                      isDark: isDark,
+                    ),
+                    _buildMetaChip(
+                      icon: Icons.bolt_rounded,
+                      label: 'Anında Yevmiye',
+                      isDark: isDark,
+                      iconColor: isDark ? const Color(0xFF34D399) : const Color(0xFF059669),
+                      textColor: isDark ? const Color(0xFF34D399) : const Color(0xFF059669),
+                      bgColor: isDark ? const Color(0xFF10B981).withValues(alpha: 0.1) : const Color(0xFFECFDF5),
+                      borderColor: isDark ? const Color(0xFF10B981).withValues(alpha: 0.25) : const Color(0xFFA7F3D0),
+                    ),
+                  ],
                 ),
+                const SizedBox(height: 12),
+                Text(
+                  job['description'].toString(),
+                  style: TextStyle(color: textBody, height: 1.45, fontSize: 13.5),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 16),
+                
+                // Çalışan ise başvuru durumuna göre aksiyon, İşveren ise Başvuranlar Listesi
+                _buildJobCardAction(job),
               ],
             ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Icon(Icons.location_on, size: 16, color: textSecondary),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: Text(
-                    job['location'].toString(),
-                    style: TextStyle(color: textSub, fontSize: 15),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Icon(Icons.access_time, size: 16, color: textSecondary),
-                const SizedBox(width: 4),
-                Flexible(
-                  child: Text(
-                    job['working_hours'].toString(),
-                    style: TextStyle(color: textSub, fontSize: 13),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Icon(Icons.date_range, size: 16, color: textSecondary),
-                const SizedBox(width: 4),
-                Flexible(
-                  child: Text(
-                    job['dates'].toString(),
-                    style: TextStyle(color: textSub, fontSize: 13),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Text(
-              job['description'].toString(),
-              style: TextStyle(color: textBody, height: 1.4),
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 20),
-            
-            // Çalışan ise başvuru durumuna göre aksiyon, İşveren ise Başvuranlar Listesi
-            _buildJobCardAction(job),
-          ],
-        ),
       ),
     ),
     ),
@@ -521,13 +636,21 @@ class _JobsListScreenState extends State<JobsListScreen> {
             onPressed: () => _applyForJob(job['id'].toString()),
             style: ElevatedButton.styleFrom(
               backgroundColor: primaryColor,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 12),
+              foregroundColor: isDark ? Colors.black : Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
+              elevation: 0,
             ),
-            child: const Text('Bu İlana Başvur', style: TextStyle(fontWeight: FontWeight.bold)),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: const [
+                Text('Hemen Başvur', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                SizedBox(width: 6),
+                Icon(Icons.arrow_forward_rounded, size: 16),
+              ],
+            ),
           ),
         );
       } else {

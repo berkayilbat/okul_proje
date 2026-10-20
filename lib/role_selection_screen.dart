@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'auth_service.dart';
+import 'widgets/app_snackbar.dart';
 import 'home_screen.dart';
 import 'employee_onboarding_screen.dart';
 
@@ -18,9 +19,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
 
   Future<void> _saveRoleAndProceed() async {
     if (_selectedRole == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Lütfen devam etmek için bir rol seçin.')),
-      );
+      AppSnackbar.showWarning(context, 'Lütfen devam etmek için bir rol seçin.');
       return;
     }
 
@@ -45,11 +44,9 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
         );
       }
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Rol kaydedilemedi. Lütfen internet bağlantınızı kontrol edip tekrar deneyin.'),
-          backgroundColor: Colors.red,
-        ),
+      AppSnackbar.showError(
+        context,
+        'Rol kaydedilemedi. Lütfen internet bağlantınızı kontrol edip tekrar deneyin.',
       );
     }
   }

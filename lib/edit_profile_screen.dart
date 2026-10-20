@@ -3,6 +3,7 @@ import 'constants.dart';
 import 'auth_service.dart';
 import 'validators.dart';
 import 'widgets/phone_input_formatter.dart';
+import 'widgets/app_snackbar.dart';
 import 'widgets/network_error_view.dart';
 import 'widgets/app_refresh_indicator.dart';
 import 'package:flutter/services.dart';
@@ -19,6 +20,8 @@ class EditProfileScreen extends StatefulWidget {
 }
 
 class _EditProfileScreenState extends State<EditProfileScreen> {
+  final _formKey = GlobalKey<FormState>();
+  AutovalidateMode _autoValidateMode = AutovalidateMode.disabled;
   final _phoneController = TextEditingController();
   final _addressController = TextEditingController();
   final _firstNameController = TextEditingController();
@@ -113,52 +116,24 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Future<void> _saveProfile() async {
+    if (!_formKey.currentState!.validate()) {
+      setState(() => _autoValidateMode = AutovalidateMode.onUserInteraction);
+      AppSnackbar.showWarning(
+        context,
+        'Lütfen formdaki hatalı alanları kontrol edin.',
+      );
+      return;
+    }
+
+    if (widget.role == 'Employee' && _selectedProfessions.isEmpty) {
+      AppSnackbar.showWarning(context, 'Lütfen en az bir meslek seçin.');
+      return;
+    }
+
     final rawPhone = _phoneController.text.trim();
     final newPhone = PhoneInputFormatter.toDbFormat(rawPhone);
     final firstName = _firstNameController.text.trim();
     final lastName = _lastNameController.text.trim();
-
-    if (rawPhone.isEmpty || firstName.isEmpty || lastName.isEmpty) {
-       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('İsim, soyisim veya telefon boş bırakılamaz.')));
-       return;
-    }
-
-    if (!Validators.isValidName(firstName) || !Validators.isValidName(lastName)) {
-       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Ad ve soyad sadece harflerden oluşmalıdır.')));
-       return;
-    }
-
-    if (!Validators.isValidPhone(rawPhone)) {
-       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Geçerli bir telefon numarası giriniz (Örn: 5XX XXX XX XX).')));
-       return;
-    }
-
-    if (widget.role == 'Employee' && _selectedProfessions.isEmpty) {
-       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Lütfen en az bir meslek seçin.')));
-       return;
-    }
-
-    if (widget.role == 'Employer') {
-      final taxNo = _taxNoController.text.trim();
-      if (taxNo.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Vergi Kimlik Numarası zorunludur.')),
-        );
-        return;
-      }
-      if (taxNo.length != 10) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Vergi Kimlik No tam 10 haneli olmalıdır.')),
-        );
-        return;
-      }
-      if (!Validators.isValidTaxNumber(taxNo)) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Vergi Kimlik Numarası algoritmaya uymuyor.')),
-        );
-        return;
-      }
-    }
 
     setState(() => _isSaving = true);
 
@@ -178,24 +153,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     setState(() => _isSaving = false);
 
     if (result['status'] == 'success') {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profil başarıyla güncellendi!'), backgroundColor: Colors.green),
-      );
-      // Geriye yeni telefon numarası ile dön (böylece önceki ekran da yenilenebilir)
+      AppSnackbar.showSuccess(context, 'Profil başarıyla güncellendi!');
       Navigator.pop(context, newPhone);
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(result['message'] ?? 'Güncelleme hatası.'),
-          backgroundColor: Colors.red,
-          action: result['is_network_error'] == true
-              ? SnackBarAction(
-                  label: 'Yeniden Dene',
-                  textColor: Colors.white,
-                  onPressed: _saveProfile,
-                )
-              : null,
-        ),
+      AppSnackbar.showError(
+        context,
+        result['message'] ?? 'Güncelleme hatası.',
+        onRetry: result['is_network_error'] == true ? _saveProfile : null,
       );
     }
   }
@@ -225,94 +189,136 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 child: SingleChildScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.all(24),
-                  child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Kişisel Bilgiler', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: primaryColor)),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _firstNameController,
-                        inputFormatters: [Validators.nameInputFormatter, LengthLimitingTextInputFormatter(50)],
-                        decoration: const InputDecoration(
-                          labelText: 'Ad',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.person),
+                  child: Form(
+                    key: _formKey,
+                    autovalidateMode: _autoValidateMode,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Kişisel Bilgiler', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: primaryColor)),
+                        const SizedBox(height: 16),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: TextFormField(
+                                controller: _firstNameController,
+                                inputFormatters: [Validators.nameInputFormatter, LengthLimitingTextInputFormatter(50)],
+                                validator: (val) {
+                                  final text = val?.trim() ?? '';
+                                  if (text.isEmpty) return 'Ad zorunludur.';
+                                  if (!Validators.isValidName(text)) return 'Sadece harf giriniz.';
+                                  if (text.length < 2) return 'En az 2 karakter giriniz.';
+                                  return null;
+                                },
+                                decoration: const InputDecoration(
+                                  labelText: 'Ad',
+                                  border: OutlineInputBorder(),
+                                  prefixIcon: Icon(Icons.person),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: TextFormField(
+                                controller: _lastNameController,
+                                inputFormatters: [Validators.nameInputFormatter, LengthLimitingTextInputFormatter(50)],
+                                validator: (val) {
+                                  final text = val?.trim() ?? '';
+                                  if (text.isEmpty) return 'Soyad zorunludur.';
+                                  if (!Validators.isValidName(text)) return 'Sadece harf giriniz.';
+                                  if (text.length < 2) return 'En az 2 karakter giriniz.';
+                                  return null;
+                                },
+                                decoration: const InputDecoration(
+                                  labelText: 'Soyad',
+                                  border: OutlineInputBorder(),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: TextField(
-                        controller: _lastNameController,
-                        inputFormatters: [Validators.nameInputFormatter, LengthLimitingTextInputFormatter(50)],
-                        decoration: const InputDecoration(
-                          labelText: 'Soyad',
-                          border: OutlineInputBorder(),
+                        const SizedBox(height: 24),
+                        
+                        Text('İletişim Bilgileri', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: primaryColor)),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _phoneController,
+                          keyboardType: TextInputType.phone,
+                          maxLength: 14,
+                          inputFormatters: [PhoneInputFormatter()],
+                          validator: (val) {
+                            final text = val?.trim() ?? '';
+                            if (text.isEmpty) return 'Telefon boş bırakılamaz.';
+                            if (!Validators.isValidPhone(text)) {
+                              return 'Geçerli bir telefon numarası giriniz (05XX...).';
+                            }
+                            return null;
+                          },
+                          decoration: const InputDecoration(
+                            labelText: 'Telefon Numarası',
+                            hintText: '05XX XXX XX XX',
+                            counterText: '',
+                            border: OutlineInputBorder(),
+                            prefixIcon: Icon(Icons.phone),
+                          ),
                         ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                
-                Text('İletişim Bilgileri', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: primaryColor)),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: _phoneController,
-                  keyboardType: TextInputType.phone,
-                  maxLength: 14,
-                  inputFormatters: [PhoneInputFormatter()],
-                  decoration: const InputDecoration(
-                    labelText: 'Telefon Numarası',
-                    hintText: '05XX XXX XX XX',
-                    counterText: '',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.phone),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                
-                if (widget.role == 'Employer') ...[
-                  Text('Kurumsal Bilgiler', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: primaryColor)),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: _taxNoController,
-                    maxLength: 10,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    onChanged: (_) => setState(() {}),
-                    decoration: InputDecoration(
-                      labelText: 'Vergi Kimlik Numarası (10 Hane)',
-                      hintText: '10 haneli vergi no',
-                      border: const OutlineInputBorder(),
-                      prefixIcon: const Icon(Icons.receipt_long_outlined),
-                      suffixIcon: _buildTaxSuffixIcon(_taxNoController.text),
-                      counterText: '',
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                ],
-                
-                if (isEmployee) ...[
-                  Text('İkametgah Adresi', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: primaryColor)),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: _addressController,
-                    inputFormatters: [Validators.denyHtmlTagFormatter, LengthLimitingTextInputFormatter(255)],
-                    maxLines: 3,
-                    decoration: const InputDecoration(
-                      labelText: 'Adres',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Padding(
-                        padding: EdgeInsets.only(bottom: 32.0),
-                        child: Icon(Icons.location_on),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
+                        const SizedBox(height: 24),
+                        
+                        if (widget.role == 'Employer') ...[
+                          Text('Kurumsal Bilgiler', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: primaryColor)),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _taxNoController,
+                            maxLength: 10,
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                            onChanged: (_) => setState(() {}),
+                            validator: (val) {
+                              if (widget.role != 'Employer') return null;
+                              final text = val?.trim() ?? '';
+                              if (text.isEmpty) return 'Vergi Kimlik Numarası zorunludur.';
+                              if (text.length != 10) return 'VKN tam 10 haneli olmalıdır.';
+                              if (!Validators.isValidTaxNumber(text)) {
+                                return 'Vergi Kimlik Numarası algoritmaya uymuyor.';
+                              }
+                              return null;
+                            },
+                            decoration: InputDecoration(
+                              labelText: 'Vergi Kimlik Numarası (10 Hane)',
+                              hintText: '10 haneli vergi no',
+                              border: const OutlineInputBorder(),
+                              prefixIcon: const Icon(Icons.receipt_long_outlined),
+                              suffixIcon: _buildTaxSuffixIcon(_taxNoController.text),
+                              counterText: '',
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                        ],
+                        
+                        if (isEmployee) ...[
+                          Text('İkametgah Adresi', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: primaryColor)),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _addressController,
+                            inputFormatters: [Validators.denyHtmlTagFormatter, LengthLimitingTextInputFormatter(255)],
+                            maxLines: 3,
+                            validator: (val) {
+                              if (!isEmployee) return null;
+                              final text = val?.trim() ?? '';
+                              if (text.isEmpty) return 'İkametgah adresi zorunludur.';
+                              return null;
+                            },
+                            decoration: const InputDecoration(
+                              labelText: 'Adres',
+                              border: OutlineInputBorder(),
+                              prefixIcon: Padding(
+                                padding: EdgeInsets.only(bottom: 32.0),
+                                child: Icon(Icons.location_on),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 24),
 
                   Text('Çalışabileceğiniz Meslekler (İstediğiniz kadar seçin)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: primaryColor)),
                   const SizedBox(height: 12),
@@ -367,7 +373,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               ],
             ),
           ),
-        )
+        ),
+      ),
     );
   }
 }

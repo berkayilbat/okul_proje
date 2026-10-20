@@ -2,6 +2,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'auth_service.dart';
+import 'widgets/app_snackbar.dart';
+import 'theme/app_theme.dart';
 import 'home_screen.dart';
 
 class EmployeeOnboardingScreen extends StatefulWidget {
@@ -12,6 +14,8 @@ class EmployeeOnboardingScreen extends StatefulWidget {
 }
 
 class _EmployeeOnboardingScreenState extends State<EmployeeOnboardingScreen> {
+  final _formKey = GlobalKey<FormState>();
+  AutovalidateMode _autoValidateMode = AutovalidateMode.disabled;
   final _addressController = TextEditingController();
   final _professionsController = TextEditingController();
 
@@ -35,9 +39,11 @@ class _EmployeeOnboardingScreenState extends State<EmployeeOnboardingScreen> {
   }
 
   void _submitProfile() async {
-    if (_addressController.text.isEmpty || _professionsController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Lütfen Adres ve Meslek alanlarını doldurun.')),
+    if (!_formKey.currentState!.validate()) {
+      setState(() => _autoValidateMode = AutovalidateMode.onUserInteraction);
+      AppSnackbar.showWarning(
+        context,
+        'Lütfen işaretli zorunlu alanları doldurun.',
       );
       return;
     }
@@ -45,8 +51,8 @@ class _EmployeeOnboardingScreenState extends State<EmployeeOnboardingScreen> {
     setState(() => _isLoading = true);
 
     final result = await AuthService.uploadEmployeeProfile(
-      address: _addressController.text,
-      professions: _professionsController.text,
+      address: _addressController.text.trim(),
+      professions: _professionsController.text.trim(),
       certificatePaths: _certificatePaths,
       workplacePaths: _workplacePaths,
     );
@@ -55,13 +61,12 @@ class _EmployeeOnboardingScreenState extends State<EmployeeOnboardingScreen> {
     setState(() => _isLoading = false);
 
     if (result['status'] == 'success') {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profiliniz oluşturuldu!', style: TextStyle(color: Colors.white)), backgroundColor: Colors.green),
-      );
+      AppSnackbar.showSuccess(context, 'Profiliniz başarıyla oluşturuldu!');
       Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const HomeScreen(role: 'Employee')));
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(result['message'] ?? 'Hata oluştu.'), backgroundColor: Colors.red),
+      AppSnackbar.showError(
+        context,
+        result['message'] ?? 'Hata oluştu.',
       );
     }
   }
@@ -168,34 +173,51 @@ class _EmployeeOnboardingScreenState extends State<EmployeeOnboardingScreen> {
             )
           : SingleChildScrollView(
               padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Text(
-                    'Sizi daha iyi tanıyabilmemiz ve işverenlerimize doğru sunabilmemiz için aşağıdaki bilgileri eksiksiz doldurun.',
-                    style: TextStyle(fontSize: 16, color: Colors.black54),
-                  ),
-                  const SizedBox(height: 24),
-                  
-                  TextField(
-                    controller: _addressController,
-                    maxLines: 3,
-                    decoration: const InputDecoration(
-                      labelText: 'Oturduğunuz Adres (Zorunlu)',
-                      border: OutlineInputBorder(),
+              child: Form(
+                key: _formKey,
+                autovalidateMode: _autoValidateMode,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text(
+                      'Sizi daha iyi tanıyabilmemiz ve işverenlerimize doğru sunabilmemiz için aşağıdaki bilgileri eksiksiz doldurun.',
+                      style: TextStyle(fontSize: 16, color: Colors.black54),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  
-                  TextField(
-                    controller: _professionsController,
-                    maxLines: 2,
-                    decoration: const InputDecoration(
-                      labelText: 'Aradığınız / Çalışabileceğiniz Meslekler (Zorunlu)',
-                      border: OutlineInputBorder(),
-                      hintText: 'Örn: Garson, Kasiyer, Temizlik Görevlisi...',
+                    const SizedBox(height: 24),
+                    
+                    TextFormField(
+                      controller: _addressController,
+                      maxLines: 3,
+                      validator: (val) {
+                        if (val == null || val.trim().isEmpty) {
+                          return 'Lütfen oturduğunuz adresi girin.';
+                        }
+                        return null;
+                      },
+                      decoration: const InputDecoration(
+                        labelText: 'Oturduğunuz Adres (Zorunlu)',
+                        border: OutlineInputBorder(),
+                        errorStyle: TextStyle(color: AppColors.error),
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: 16),
+                    
+                    TextFormField(
+                      controller: _professionsController,
+                      maxLines: 2,
+                      validator: (val) {
+                        if (val == null || val.trim().isEmpty) {
+                          return 'Lütfen en az bir meslek belirtin.';
+                        }
+                        return null;
+                      },
+                      decoration: const InputDecoration(
+                        labelText: 'Aradığınız / Çalışabileceğiniz Meslekler (Zorunlu)',
+                        border: OutlineInputBorder(),
+                        hintText: 'Örn: Garson, Kasiyer, Temizlik Görevlisi...',
+                        errorStyle: TextStyle(color: AppColors.error),
+                      ),
+                    ),
                   const SizedBox(height: 24),
                   
                   _buildImageGrid(_certificatePaths, true),
@@ -218,6 +240,7 @@ class _EmployeeOnboardingScreenState extends State<EmployeeOnboardingScreen> {
                 ],
               ),
             ),
+          ),
     );
   }
 }

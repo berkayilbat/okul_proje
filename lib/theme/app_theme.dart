@@ -27,6 +27,8 @@ class AppColors {
   static const Color star = Color(0xFFFBBF24);
   static const Color success = Color(0xFF10B981);
   static const Color error = Color(0xFFEF4444);
+  static const Color warning = Color(0xFFF59E0B);
+  static const Color info = Color(0xFF3B82F6);
 }
 
 class ThemeController {
@@ -102,6 +104,12 @@ class AppTheme {
         color: AppColors.lightBorder,
         thickness: 1,
       ),
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        elevation: 3,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      ),
     );
   }
 
@@ -146,6 +154,12 @@ class AppTheme {
       dividerTheme: const DividerThemeData(
         color: AppColors.darkBorder,
         thickness: 1,
+      ),
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        elevation: 3,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       ),
     );
   }

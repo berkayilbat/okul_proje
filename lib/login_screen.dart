@@ -10,6 +10,7 @@ import 'server_config.dart';
 import 'job_service.dart';
 import 'widgets/animated_theme_toggle.dart';
 import 'widgets/phone_input_formatter.dart';
+import 'widgets/app_snackbar.dart';
 import 'theme/app_theme.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -27,6 +28,8 @@ class _LoginScreenState extends State<LoginScreen> {
   // ===========================================================================
   static const bool _bypassAuthForTesting = false;
 
+  final _formKey = GlobalKey<FormState>();
+  AutovalidateMode _autoValidateMode = AutovalidateMode.disabled;
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _rememberMe = false;
@@ -65,13 +68,11 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isSeeding = false);
 
     final isSuccess = res['status'] == 'success';
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(res['message'] ?? (isSuccess ? 'Demo verileri yüklendi!' : 'Hata oluştu')),
-        backgroundColor: isSuccess ? Colors.green : Colors.red,
-        duration: const Duration(seconds: 3),
-      ),
-    );
+    if (isSuccess) {
+      AppSnackbar.showSuccess(context, res['message'] ?? 'Demo verileri yüklendi!');
+    } else {
+      AppSnackbar.showError(context, res['message'] ?? 'Hata oluştu');
+    }
     _checkServerStatus();
   }
 
@@ -84,7 +85,7 @@ class _LoginScreenState extends State<LoginScreen> {
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (context, setStateSB) {
+        builder: (dialogCtx, setStateSB) {
           return AlertDialog(
             title: const Row(
               children: [
@@ -191,10 +192,11 @@ class _LoginScreenState extends State<LoginScreen> {
                 onPressed: () async {
                   await ServerConfig.setCustomHost(hostController.text);
                   if (!mounted) return;
-                  Navigator.pop(ctx);
+                  if (ctx.mounted) Navigator.pop(ctx);
                   _checkServerStatus();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Sunucu adresi güncellendi: ${ServerConfig.baseUrl}')),
+                  AppSnackbar.showSuccess(
+                    context,
+                    'Sunucu adresi güncellendi: ${ServerConfig.baseUrl}',
                   );
                 },
                 child: const Text('Kaydet'),
@@ -215,30 +217,18 @@ class _LoginScreenState extends State<LoginScreen> {
         : PhoneInputFormatter.toDbFormat(rawPhone);
 
     if (_failedAttempts >= 5 && !_bypassAuthForTesting) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Çok fazla hatalı giriş yaptınız. Lütfen daha sonra tekrar deneyiniz veya şifrenizi sıfırlayınız.',
-          ),
-        ),
+      AppSnackbar.showWarning(
+        context,
+        'Çok fazla hatalı giriş yaptınız. Lütfen daha sonra tekrar deneyiniz veya şifrenizi sıfırlayınız.',
       );
       return;
     }
 
-    if (rawPhone.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Lütfen telefon ve şifrenizi girin.')),
-      );
-      return;
-    }
-
-    if (!Validators.isValidPhone(rawPhone) && !_bypassAuthForTesting) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Geçerli bir telefon numarası giriniz (Örn: 5XX XXX XX XX).',
-          ),
-        ),
+    if (!_formKey.currentState!.validate()) {
+      setState(() => _autoValidateMode = AutovalidateMode.onUserInteraction);
+      AppSnackbar.showWarning(
+        context,
+        'Lütfen telefon ve şifre alanlarını kontrol edin.',
       );
       return;
     }
@@ -310,22 +300,14 @@ class _LoginScreenState extends State<LoginScreen> {
 
       int remaining = 5 - _failedAttempts;
       final errorMsg = loginRes['message'] ?? 'Giriş yapılamadı.';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            isNetworkError || isRateLimited
-                ? errorMsg
-                : '$errorMsg ${remaining > 0 ? "Kalan hakkınız: $remaining" : "Giriş engellendi."}',
-          ),
-          backgroundColor: Colors.red,
-          action: isNetworkError
-              ? SnackBarAction(
-                  label: 'Yeniden Dene',
-                  textColor: Colors.white,
-                  onPressed: _login,
-                )
-              : null,
-        ),
+      final fullMsg = isNetworkError || isRateLimited
+          ? errorMsg
+          : '$errorMsg ${remaining > 0 ? "Kalan hakkınız: $remaining" : "Giriş engellendi."}';
+
+      AppSnackbar.showError(
+        context,
+        fullMsg,
+        onRetry: isNetworkError ? _login : null,
       );
     }
   }
@@ -515,123 +497,172 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
 
-              // GİRİŞ ALANLARI (Balon & Dış Hatsız Tasarım)
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'Telefon Numarası',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: isDark ? Colors.white : const Color(0xFF111827),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _phoneController,
-                maxLength: _bypassAuthForTesting ? null : 14,
-                keyboardType: _bypassAuthForTesting ? TextInputType.text : TextInputType.phone,
-                inputFormatters: _bypassAuthForTesting ? [] : [PhoneInputFormatter()],
-                style: TextStyle(
-                  color: isDark ? Colors.white : const Color(0xFF111827),
-                  fontSize: 15,
-                ),
-                decoration: InputDecoration(
-                  hintText: '05XX XXX XX XX',
-                  hintStyle: TextStyle(
-                    color: isDark ? AppColors.darkTextSecondary.withValues(alpha: 0.6) : Colors.grey.shade400,
-                    fontSize: 14,
-                  ),
-                  prefixIcon: Icon(
-                    Icons.phone_outlined,
-                    size: 20,
-                    color: isDark ? AppColors.darkTextSecondary : Colors.grey.shade600,
-                  ),
-                  filled: true,
-                  fillColor: isDark ? AppColors.darkInput : const Color(0xFFF1F3F7),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                  counterText: '',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(24),
-                    borderSide: BorderSide.none,
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(24),
-                    borderSide: BorderSide.none,
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(24),
-                    borderSide: BorderSide(
-                      color: isDark ? AppColors.darkPrimary : const Color(0xFF111827),
-                      width: 1.2,
+              // GİRİŞ ALANLARI (Form & TextFormField Doğrulamalı)
+              Form(
+                key: _formKey,
+                autovalidateMode: _autoValidateMode,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Telefon Numarası',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? Colors.white : const Color(0xFF111827),
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 18),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'Şifre',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: isDark ? Colors.white : const Color(0xFF111827),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _passwordController,
-                maxLength: _bypassAuthForTesting ? null : 20,
-                obscureText: _obscurePassword,
-                style: TextStyle(
-                  color: isDark ? Colors.white : const Color(0xFF111827),
-                  fontSize: 15,
-                ),
-                decoration: InputDecoration(
-                  hintText: 'Şifrenizi girin',
-                  hintStyle: TextStyle(
-                    color: isDark ? AppColors.darkTextSecondary.withValues(alpha: 0.6) : Colors.grey.shade400,
-                    fontSize: 14,
-                  ),
-                  prefixIcon: Icon(
-                    Icons.lock_outline,
-                    size: 20,
-                    color: isDark ? AppColors.darkTextSecondary : Colors.grey.shade600,
-                  ),
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-                      size: 20,
-                      color: isDark ? AppColors.darkTextSecondary : Colors.grey.shade600,
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: _phoneController,
+                      maxLength: _bypassAuthForTesting ? null : 14,
+                      keyboardType: _bypassAuthForTesting ? TextInputType.text : TextInputType.phone,
+                      inputFormatters: _bypassAuthForTesting ? [] : [PhoneInputFormatter()],
+                      validator: (val) {
+                        if (_bypassAuthForTesting) return null;
+                        final text = val?.trim() ?? '';
+                        if (text.isEmpty) {
+                          return 'Lütfen telefon numaranızı girin.';
+                        }
+                        if (!Validators.isValidPhone(text)) {
+                          return 'Geçerli bir telefon numarası giriniz (05XX...).';
+                        }
+                        return null;
+                      },
+                      style: TextStyle(
+                        color: isDark ? Colors.white : const Color(0xFF111827),
+                        fontSize: 15,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: '05XX XXX XX XX',
+                        hintStyle: TextStyle(
+                          color: isDark ? AppColors.darkTextSecondary.withValues(alpha: 0.6) : Colors.grey.shade400,
+                          fontSize: 14,
+                        ),
+                        prefixIcon: Icon(
+                          Icons.phone_outlined,
+                          size: 20,
+                          color: isDark ? AppColors.darkTextSecondary : Colors.grey.shade600,
+                        ),
+                        filled: true,
+                        fillColor: isDark ? AppColors.darkInput : const Color(0xFFF1F3F7),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                        counterText: '',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(24),
+                          borderSide: BorderSide.none,
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(24),
+                          borderSide: BorderSide.none,
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(24),
+                          borderSide: BorderSide(
+                            color: isDark ? AppColors.darkPrimary : const Color(0xFF111827),
+                            width: 1.2,
+                          ),
+                        ),
+                        errorBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(24),
+                          borderSide: const BorderSide(color: AppColors.error, width: 1.2),
+                        ),
+                        focusedErrorBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(24),
+                          borderSide: const BorderSide(color: AppColors.error, width: 1.5),
+                        ),
+                        errorStyle: const TextStyle(fontSize: 12, color: AppColors.error),
+                      ),
                     ),
-                    onPressed: () {
-                      setState(() {
-                        _obscurePassword = !_obscurePassword;
-                      });
-                    },
-                  ),
-                  filled: true,
-                  fillColor: isDark ? AppColors.darkInput : const Color(0xFFF1F3F7),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                  counterText: '',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(24),
-                    borderSide: BorderSide.none,
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(24),
-                    borderSide: BorderSide.none,
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(24),
-                    borderSide: BorderSide(
-                      color: isDark ? AppColors.darkPrimary : const Color(0xFF111827),
-                      width: 1.2,
+                    const SizedBox(height: 18),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Şifre',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? Colors.white : const Color(0xFF111827),
+                        ),
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: _passwordController,
+                      maxLength: _bypassAuthForTesting ? null : 20,
+                      obscureText: _obscurePassword,
+                      validator: (val) {
+                        if (_bypassAuthForTesting) return null;
+                        final text = val ?? '';
+                        if (text.isEmpty) {
+                          return 'Lütfen şifrenizi girin.';
+                        }
+                        if (text.length < 6) {
+                          return 'Şifre en az 6 karakter olmalıdır.';
+                        }
+                        return null;
+                      },
+                      style: TextStyle(
+                        color: isDark ? Colors.white : const Color(0xFF111827),
+                        fontSize: 15,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: 'Şifrenizi girin',
+                        hintStyle: TextStyle(
+                          color: isDark ? AppColors.darkTextSecondary.withValues(alpha: 0.6) : Colors.grey.shade400,
+                          fontSize: 14,
+                        ),
+                        prefixIcon: Icon(
+                          Icons.lock_outline,
+                          size: 20,
+                          color: isDark ? AppColors.darkTextSecondary : Colors.grey.shade600,
+                        ),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                            size: 20,
+                            color: isDark ? AppColors.darkTextSecondary : Colors.grey.shade600,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _obscurePassword = !_obscurePassword;
+                            });
+                          },
+                        ),
+                        filled: true,
+                        fillColor: isDark ? AppColors.darkInput : const Color(0xFFF1F3F7),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                        counterText: '',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(24),
+                          borderSide: BorderSide.none,
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(24),
+                          borderSide: BorderSide.none,
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(24),
+                          borderSide: BorderSide(
+                            color: isDark ? AppColors.darkPrimary : const Color(0xFF111827),
+                            width: 1.2,
+                          ),
+                        ),
+                        errorBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(24),
+                          borderSide: const BorderSide(color: AppColors.error, width: 1.2),
+                        ),
+                        focusedErrorBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(24),
+                          borderSide: const BorderSide(color: AppColors.error, width: 1.5),
+                        ),
+                        errorStyle: const TextStyle(fontSize: 12, color: AppColors.error),
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 12),
@@ -675,12 +706,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   TextButton(
                     onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Kayıtlı numaranıza sıfırlama linki gönderildi.',
-                          ),
-                        ),
+                      AppSnackbar.showInfo(
+                        context,
+                        'Kayıtlı numaranıza sıfırlama linki gönderildi.',
                       );
                     },
                     style: TextButton.styleFrom(

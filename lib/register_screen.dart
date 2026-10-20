@@ -3,6 +3,7 @@ import 'auth_service.dart';
 import 'validators.dart';
 import 'package:flutter/services.dart';
 import 'widgets/phone_input_formatter.dart';
+import 'widgets/app_snackbar.dart';
 import 'theme/app_theme.dart';
 import 'widgets/animated_theme_toggle.dart';
 
@@ -90,10 +91,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return true;
     } else if (step == 1) {
       setState(() => _autoValidateStep2 = AutovalidateMode.onUserInteraction);
-      return _formKeyStep2.currentState?.validate() ?? false;
+      final ok = _formKeyStep2.currentState?.validate() ?? false;
+      if (!ok) {
+        AppSnackbar.showWarning(context, 'Lütfen işaretli alanları kontrol edin.');
+      }
+      return ok;
     } else if (step == 2) {
       setState(() => _autoValidateStep3 = AutovalidateMode.onUserInteraction);
-      return _formKeyStep3.currentState?.validate() ?? false;
+      final ok = _formKeyStep3.currentState?.validate() ?? false;
+      if (!ok) {
+        AppSnackbar.showWarning(context, 'Lütfen işaretli alanları kontrol edin.');
+      }
+      return ok;
     }
     return true;
   }
@@ -183,19 +192,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
       _showSuccessDialog(role, firstName);
     } else {
       String errMsg = result['message'] ?? 'Kayıt başarısız oldu.';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(errMsg),
-          backgroundColor: AppColors.error,
-          behavior: SnackBarBehavior.floating,
-          action: result['is_network_error'] == true
-              ? SnackBarAction(
-                  label: 'Yeniden Dene',
-                  textColor: Colors.white,
-                  onPressed: _register,
-                )
-              : null,
-        ),
+      AppSnackbar.showError(
+        context,
+        errMsg,
+        onRetry: result['is_network_error'] == true ? _register : null,
       );
     }
   }

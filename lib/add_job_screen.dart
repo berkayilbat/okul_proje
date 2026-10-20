@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import 'constants.dart';
 import 'job_service.dart';
 import 'validators.dart';
+import 'widgets/app_snackbar.dart';
+import 'theme/app_theme.dart';
 
 class AddJobScreen extends StatefulWidget {
   const AddJobScreen({super.key});
@@ -14,6 +16,7 @@ class AddJobScreen extends StatefulWidget {
 
 class _AddJobScreenState extends State<AddJobScreen> {
   final _formKey = GlobalKey<FormState>();
+  AutovalidateMode _autoValidateMode = AutovalidateMode.disabled;
   final _titleController = TextEditingController();
   final _locationController = TextEditingController();
   final _dateController = TextEditingController(); // Tarih okuma için eklendi
@@ -25,68 +28,42 @@ class _AddJobScreenState extends State<AddJobScreen> {
   String? _selectedDistrict;
 
   void _publishJob() async {
-    if (_titleController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Lütfen bir İlan Türü seçin'),
-          backgroundColor: Colors.red,
-        ),
+    if (!_formKey.currentState!.validate()) {
+      setState(() => _autoValidateMode = AutovalidateMode.onUserInteraction);
+      AppSnackbar.showWarning(
+        context,
+        'Lütfen işaretli tüm zorunlu alanları doldurun.',
       );
       return;
     }
     
-    if (_selectedDistrict == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Lütfen bir İlçe seçin'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
+    setState(() => _isLoading = true);
     
-    if (_formKey.currentState!.validate()) {
-      setState(() => _isLoading = true);
-      
-      final cleanTitle = Validators.sanitizeText(_titleController.text);
-      final cleanDistrict = Validators.sanitizeText(_selectedDistrict ?? '');
-      final cleanLocationDetail = Validators.sanitizeText(_locationController.text);
-      final fullLocation = "Ankara, $cleanDistrict, $cleanLocationDetail";
-      final result = await JobService.addJob(
-        title: cleanTitle,
-        location: fullLocation,
-        workingHours: Validators.sanitizeText(_hoursController.text),
-        wage: _priceController.text.trim().replaceAll(',', '.'),
-        description: Validators.sanitizeText(_descController.text),
-        dates: Validators.sanitizeText(_dateController.text),
+    final cleanTitle = Validators.sanitizeText(_titleController.text);
+    final cleanDistrict = Validators.sanitizeText(_selectedDistrict ?? '');
+    final cleanLocationDetail = Validators.sanitizeText(_locationController.text);
+    final fullLocation = "Ankara, $cleanDistrict, $cleanLocationDetail";
+    final result = await JobService.addJob(
+      title: cleanTitle,
+      location: fullLocation,
+      workingHours: Validators.sanitizeText(_hoursController.text),
+      wage: _priceController.text.trim().replaceAll(',', '.'),
+      description: Validators.sanitizeText(_descController.text),
+      dates: Validators.sanitizeText(_dateController.text),
+    );
+    
+    if (!mounted) return;
+    setState(() => _isLoading = false);
+    
+    if (result['status'] == 'success') {
+      AppSnackbar.showSuccess(context, 'İlanınız başarıyla yayınlandı!');
+      Navigator.pop(context, true);
+    } else {
+      AppSnackbar.showError(
+        context,
+        result['message'] ?? 'Bir hata oluştu',
+        onRetry: result['is_network_error'] == true ? _publishJob : null,
       );
-      
-      if (!mounted) return;
-      setState(() => _isLoading = false);
-      
-      if (result['status'] == 'success') {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('İlanınız başarıyla yayınlandı!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        Navigator.pop(context, true); // true döndürerek listenin güncellenmesini tetikleyebiliriz
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(result['message'] ?? 'Bir hata oluştu'),
-            backgroundColor: Colors.red,
-            action: result['is_network_error'] == true
-                ? SnackBarAction(
-                    label: 'Yeniden Dene',
-                    textColor: Colors.white,
-                    onPressed: _publishJob,
-                  )
-                : null,
-          ),
-        );
-      }
     }
   }
 
@@ -101,11 +78,9 @@ class _AddJobScreenState extends State<AddJobScreen> {
     if (picked != null) {
       if (picked.end.difference(picked.start).inDays > 4) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-           const SnackBar(
-             content: Text('İlanınız ilk günden itibaren en fazla 5 günlük olabilir! Lütfen tekrar seçin.'), 
-             backgroundColor: Colors.red
-           ),
+        AppSnackbar.showWarning(
+          context,
+          'İlanınız ilk günden itibaren en fazla 5 günlük olabilir! Lütfen tekrar seçin.',
         );
       } else {
         setState(() {
@@ -240,86 +215,129 @@ class _AddJobScreenState extends State<AddJobScreen> {
         padding: const EdgeInsets.all(24.0),
         child: Form(
           key: _formKey,
+          autovalidateMode: _autoValidateMode,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _buildSectionTitle('İlan Türü Seçin'),
               const SizedBox(height: 8),
-              InkWell(
-                onTap: () async {
-                  await _showSingleSelectDropdown(
-                    context, 
-                    'İlan Türü', 
-                    AppConstants.jobTypes, 
-                    _titleController.text, 
-                    (newSelected) {
-                      setState(() => _titleController.text = newSelected ?? '');
-                    }
+              FormField<String>(
+                validator: (_) => _titleController.text.isEmpty ? 'Lütfen bir ilan türü seçin' : null,
+                builder: (fieldState) {
+                  final hasError = fieldState.hasError;
+                  final currentBorder = hasError ? AppColors.error : borderColor;
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      InkWell(
+                        onTap: () async {
+                          await _showSingleSelectDropdown(
+                            context, 
+                            'İlan Türü', 
+                            AppConstants.jobTypes, 
+                            _titleController.text, 
+                            (newSelected) {
+                              setState(() => _titleController.text = newSelected ?? '');
+                              fieldState.didChange(newSelected);
+                            }
+                          );
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                          decoration: BoxDecoration(
+                            color: cardBg,
+                            border: Border.all(color: currentBorder, width: hasError ? 1.5 : 1.0),
+                            borderRadius: BorderRadius.circular(16)
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                _titleController.text.isEmpty ? 'İlan Türü Seçin' : _titleController.text,
+                                style: TextStyle(
+                                  color: _titleController.text.isEmpty 
+                                      ? (isDark ? const Color(0xFF94A3B8) : Colors.grey.shade600) 
+                                      : textColor,
+                                  fontSize: 16
+                                )
+                              ),
+                              Icon(Icons.arrow_drop_down, color: isDark ? const Color(0xFF94A3B8) : Colors.black54),
+                            ]
+                          )
+                        ),
+                      ),
+                      if (hasError)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 14, top: 6),
+                          child: Text(
+                            fieldState.errorText ?? '',
+                            style: const TextStyle(color: AppColors.error, fontSize: 12),
+                          ),
+                        ),
+                    ],
                   );
                 },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                  decoration: BoxDecoration(
-                    color: cardBg,
-                    border: Border.all(color: borderColor),
-                    borderRadius: BorderRadius.circular(16)
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        _titleController.text.isEmpty ? 'İlan Türü Seçin' : _titleController.text,
-                        style: TextStyle(
-                          color: _titleController.text.isEmpty 
-                              ? (isDark ? const Color(0xFF94A3B8) : Colors.grey.shade600) 
-                              : textColor,
-                          fontSize: 16
-                        )
-                      ),
-                      Icon(Icons.arrow_drop_down, color: isDark ? const Color(0xFF94A3B8) : Colors.black54),
-                    ]
-                  )
-                )
               ),
               const SizedBox(height: 16),
               _buildSectionTitle('Konum Bilgileri'),
               const SizedBox(height: 8),
-              InkWell(
-                onTap: () async {
-                  await _showSingleSelectDropdown(
-                    context, 
-                    'İlçe', 
-                    AppConstants.ankaraDistricts, 
-                    _selectedDistrict, 
-                    (newSelected) {
-                      setState(() => _selectedDistrict = newSelected);
-                    }
+              FormField<String>(
+                validator: (_) => _selectedDistrict == null ? 'Lütfen bir ilçe seçin' : null,
+                builder: (fieldState) {
+                  final hasError = fieldState.hasError;
+                  final currentBorder = hasError ? AppColors.error : borderColor;
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      InkWell(
+                        onTap: () async {
+                          await _showSingleSelectDropdown(
+                            context, 
+                            'İlçe', 
+                            AppConstants.ankaraDistricts, 
+                            _selectedDistrict, 
+                            (newSelected) {
+                              setState(() => _selectedDistrict = newSelected);
+                              fieldState.didChange(newSelected);
+                            }
+                          );
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                          decoration: BoxDecoration(
+                            color: cardBg,
+                            border: Border.all(color: currentBorder, width: hasError ? 1.5 : 1.0),
+                            borderRadius: BorderRadius.circular(16)
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                _selectedDistrict == null ? 'İl: Ankara, İlçe Seçin' : 'Ankara, $_selectedDistrict', 
+                                style: TextStyle(
+                                  color: _selectedDistrict == null 
+                                      ? (isDark ? const Color(0xFF94A3B8) : Colors.grey.shade600) 
+                                      : primaryColor,
+                                  fontSize: 16,
+                                  fontWeight: _selectedDistrict == null ? FontWeight.normal : FontWeight.bold
+                                )
+                              ),
+                              Icon(Icons.arrow_drop_down, color: isDark ? const Color(0xFF94A3B8) : Colors.black54),
+                            ]
+                          )
+                        ),
+                      ),
+                      if (hasError)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 14, top: 6),
+                          child: Text(
+                            fieldState.errorText ?? '',
+                            style: const TextStyle(color: AppColors.error, fontSize: 12),
+                          ),
+                        ),
+                    ],
                   );
                 },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                  decoration: BoxDecoration(
-                    color: cardBg,
-                    border: Border.all(color: borderColor),
-                    borderRadius: BorderRadius.circular(16)
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        _selectedDistrict == null ? 'İl: Ankara, İlçe Seçin' : 'Ankara, $_selectedDistrict', 
-                        style: TextStyle(
-                          color: _selectedDistrict == null 
-                              ? (isDark ? const Color(0xFF94A3B8) : Colors.grey.shade600) 
-                              : primaryColor,
-                          fontSize: 16,
-                          fontWeight: _selectedDistrict == null ? FontWeight.normal : FontWeight.bold
-                        )
-                      ),
-                      Icon(Icons.arrow_drop_down, color: isDark ? const Color(0xFF94A3B8) : Colors.black54),
-                    ]
-                  )
-                )
               ),
               _buildModernTextField(
                 controller: _locationController,
@@ -460,6 +478,15 @@ class _AddJobScreenState extends State<AddJobScreen> {
             borderRadius: BorderRadius.circular(16),
             borderSide: BorderSide.none,
           ),
+          errorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(color: AppColors.error, width: 1.2),
+          ),
+          focusedErrorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(color: AppColors.error, width: 1.5),
+          ),
+          errorStyle: const TextStyle(fontSize: 12, color: AppColors.error),
           filled: true,
           fillColor: cardBg,
           contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),

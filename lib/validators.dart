@@ -30,9 +30,8 @@ class Validators {
     return hasLetter && hasSpecial;
   }
 
+  /// 11 haneli T.C. Kimlik Numarası doğrulama algoritması.
   static bool isValidIdNumber(String idValue) {
-    // TC Kimlik ve istenen Vergi Kimlik kuralları aynı olacak şekilde
-    // 11 haneli olmalı, 0 ile başlayamaz
     if (idValue.length != 11) return false;
     if (idValue.startsWith('0')) return false;
     if (int.tryParse(idValue) == null) return false;
@@ -57,4 +56,34 @@ class Validators {
 
     return true;
   }
+
+  /// T.C. Kimlik Numarası için alias.
+  static bool isValidTcNumber(String tcValue) => isValidIdNumber(tcValue);
+
+  /// 10 haneli Vergi Kimlik Numarası (VKN) doğrulama algoritması.
+  static bool isValidTaxNumber(String taxValue) {
+    final trimmed = taxValue.trim();
+    if (trimmed.length != 10) return false;
+    if (int.tryParse(trimmed) == null) return false;
+
+    final digits = trimmed.split('').map((e) => int.parse(e)).toList();
+
+    int sum = 0;
+    for (int i = 0; i < 9; i++) {
+      // 1-based pozisyon (sağdan sola): 9 - i
+      final int weight = 9 - i;
+      final int v1 = (digits[i] + weight) % 10;
+      if (v1 != 0) {
+        int v2 = (v1 * (1 << weight)) % 9;
+        if (v2 == 0) v2 = 9;
+        sum += v2;
+      }
+    }
+
+    final int calculatedLastDigit = (10 - (sum % 10)) % 10;
+    return digits[9] == calculatedLastDigit;
+  }
+
+  /// [isValidTaxNumber] için alias (VKN).
+  static bool isValidVkn(String vkn) => isValidTaxNumber(vkn);
 }

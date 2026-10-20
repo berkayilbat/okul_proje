@@ -1,6 +1,9 @@
 <?php
 require_once 'db.php';
 
+// IP Bazlı Hız Sınırı: 20 istek / 60 saniye
+apply_rate_limit($conn, 'update_profile', 20, 60, 60);
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     echo json_encode(["status" => "error", "message" => "Invalid request method."]);
     exit();
@@ -19,6 +22,13 @@ $last_name = isset($data->last_name) ? $data->last_name : null;
 $address = isset($data->address) ? $data->address : null;
 $professions = isset($data->professions) ? $data->professions : null;
 $tax_no = isset($data->tax_no) ? $data->tax_no : null;
+
+if ($tax_no !== null && $tax_no !== '') {
+    if (!is_valid_vkn($tax_no)) {
+        echo json_encode(["status" => "error", "message" => "Vergi Kimlik Numarası algoritmaya uymuyor (10 haneli VKN olmalıdır)."]);
+        exit();
+    }
+}
 
 try {
     $stmt = $conn->prepare("

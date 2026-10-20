@@ -3,6 +3,8 @@ import 'job_service.dart';
 import 'qr_generate_screen.dart';
 import 'qr_scan_screen.dart';
 import 'widgets/review_dialog.dart';
+import 'widgets/network_error_view.dart';
+import 'widgets/app_refresh_indicator.dart';
 
 class ApplicationsScreen extends StatefulWidget {
   final bool isEmployer;
@@ -17,6 +19,8 @@ class ApplicationsScreen extends StatefulWidget {
 class _ApplicationsScreenState extends State<ApplicationsScreen> {
   List<dynamic> _applications = [];
   bool _isLoading = true;
+  bool _hasNetworkError = false;
+  String? _networkErrorMessage;
 
   @override
   void initState() {
@@ -25,20 +29,34 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
   }
 
   Future<void> _fetchApplications() async {
-    setState(() => _isLoading = true);
-    final apps = await JobService.getApplications(widget.isEmployer);
-    if (mounted) {
+    setState(() {
+      _isLoading = true;
+      _hasNetworkError = false;
+      _networkErrorMessage = null;
+    });
+
+    final appsRes = await JobService.fetchApplications(widget.isEmployer);
+    if (!mounted) return;
+
+    if (appsRes['success'] != true && (appsRes['is_network_error'] == true || _applications.isEmpty)) {
       setState(() {
-        // Geçmiş filtresiyse (sadece tamamlanmış ya da reddedilmiş işler)
-        if (widget.isHistory) {
-          _applications = apps.where((app) => app['app_status'] == 'completed').toList();
-        } else {
-          // Aktif başvurular
-          _applications = apps.where((app) => app['app_status'] != 'completed').toList();
-        }
+        _hasNetworkError = true;
+        _networkErrorMessage = appsRes['message']?.toString();
         _isLoading = false;
       });
+      return;
     }
+
+    final apps = (appsRes['data'] as List?) ?? [];
+    setState(() {
+      if (widget.isHistory) {
+        _applications = apps.where((app) => app['app_status'] == 'completed').toList();
+      } else {
+        _applications = apps.where((app) => app['app_status'] != 'completed').toList();
+      }
+      _hasNetworkError = false;
+      _isLoading = false;
+    });
   }
 
   Future<bool> _manageApplication(String id, String action) async {
@@ -55,6 +73,13 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
       SnackBar(
         content: Text(result['message'] ?? 'İşlem yapıldı'),
         backgroundColor: result['status'] == 'success' ? Colors.green : Colors.red,
+        action: result['status'] != 'success' && result['is_network_error'] == true
+            ? SnackBarAction(
+                label: 'Yeniden Dene',
+                textColor: Colors.white,
+                onPressed: () => _manageApplication(id, action),
+              )
+            : null,
       ),
     );
     if (result['status'] == 'success') {
@@ -66,13 +91,24 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return _isLoading
-        ? const Center(child: CircularProgressIndicator(color: const Color(0xFF111827)))
-        : RefreshIndicator(
-            onRefresh: _fetchApplications,
-            color: const Color(0xFF111827),
-            child: _applications.isEmpty ? _buildEmptyState() : _buildList(),
-          );
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator(color: Color(0xFF111827)));
+    }
+
+    if (_hasNetworkError && _applications.isEmpty) {
+      return AppRefreshIndicator(
+        onRefresh: _fetchApplications,
+        child: NetworkErrorView(
+          message: _networkErrorMessage,
+          onRetry: _fetchApplications,
+        ),
+      );
+    }
+
+    return AppRefreshIndicator(
+      onRefresh: _fetchApplications,
+      child: _applications.isEmpty ? _buildEmptyState() : _buildList(),
+    );
   }
 
   Widget _buildEmptyState() {

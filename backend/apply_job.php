@@ -1,6 +1,9 @@
 <?php
 require_once 'db.php';
 
+// IP Bazlı Hız Sınırı: 15 istek / 60 saniye
+apply_rate_limit($conn, 'apply_job', 15, 60, 60);
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     echo json_encode(["status" => "error", "message" => "Invalid request method."]);
     exit();

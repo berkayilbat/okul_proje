@@ -54,4 +54,29 @@ function sanitize_input($data) {
     if (is_null($data)) return null;
     return htmlspecialchars(trim((string)$data), ENT_QUOTES, 'UTF-8');
 }
+
+function is_valid_vkn($vkn) {
+    if (empty($vkn)) return false;
+    $vkn = trim((string)$vkn);
+    if (strlen($vkn) !== 10 || !ctype_digit($vkn)) return false;
+
+    $sum = 0;
+    $last_digit = (int)$vkn[9];
+
+    for ($i = 0; $i < 9; $i++) {
+        $digit = (int)$vkn[$i];
+        $weight = 9 - $i;
+        $v1 = ($digit + $weight) % 10;
+        if ($v1 !== 0) {
+            $v2 = ($v1 * (1 << $weight)) % 9;
+            if ($v2 === 0) $v2 = 9;
+            $sum += $v2;
+        }
+    }
+
+    $calc = (10 - ($sum % 10)) % 10;
+    return $calc === $last_digit;
+}
+
+require_once __DIR__ . '/rate_limiter.php';
 ?>

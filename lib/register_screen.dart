@@ -99,12 +99,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   // --- CANLI TC / VERGİ NO DOĞRULAMA İKONU ---
-  Widget? _buildIdSuffixIcon(String text) {
+  Widget? _buildIdSuffixIcon(String text, {bool isTaxNo = false}) {
     final clean = text.replaceAll(RegExp(r'\D'), '');
     if (clean.isEmpty) return null;
 
-    if (clean.length == 11) {
-      final isValid = Validators.isValidIdNumber(clean);
+    final targetLength = isTaxNo ? 10 : 11;
+
+    if (clean.length == targetLength) {
+      final isValid = isTaxNo
+          ? Validators.isValidTaxNumber(clean)
+          : Validators.isValidIdNumber(clean);
       return Icon(
         isValid ? Icons.check_circle_rounded : Icons.cancel_rounded,
         color: isValid ? AppColors.success : AppColors.error,
@@ -115,7 +119,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
       child: Text(
-        '${clean.length}/11',
+        '${clean.length}/$targetLength',
         style: const TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.bold,
@@ -184,6 +188,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
           content: Text(errMsg),
           backgroundColor: AppColors.error,
           behavior: SnackBarBehavior.floating,
+          action: result['is_network_error'] == true
+              ? SnackBarAction(
+                  label: 'Yeniden Dene',
+                  textColor: Colors.white,
+                  onPressed: _register,
+                )
+              : null,
         ),
       );
     }
@@ -675,15 +686,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
               // VERGİ KİMLİK NUMARASI (CANLI GERİ BİLDİRİM İLE)
               TextFormField(
                 controller: _taxNoController,
-                maxLength: 11,
+                maxLength: 10,
                 keyboardType: TextInputType.number,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 onChanged: (_) => setState(() {}),
                 decoration: InputDecoration(
-                  labelText: 'Vergi Kimlik Numarası (11 Hane)',
-                  hintText: '11 haneli vergi no',
+                  labelText: 'Vergi Kimlik Numarası (10 Hane)',
+                  hintText: '10 haneli vergi no',
                   prefixIcon: const Icon(Icons.receipt_long_outlined),
-                  suffixIcon: _buildIdSuffixIcon(_taxNoController.text),
+                  suffixIcon: _buildIdSuffixIcon(_taxNoController.text, isTaxNo: true),
                   border: const OutlineInputBorder(),
                   counterText: '',
                 ),
@@ -691,10 +702,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   if (val == null || val.trim().isEmpty) {
                     return 'Vergi Kimlik Numarası zorunludur.';
                   }
-                  if (val.trim().length != 11) {
-                    return 'Vergi Kimlik No tam 11 haneli olmalıdır.';
+                  if (val.trim().length != 10) {
+                    return 'Vergi Kimlik No tam 10 haneli olmalıdır.';
                   }
-                  if (!Validators.isValidIdNumber(val.trim())) {
+                  if (!Validators.isValidTaxNumber(val.trim())) {
                     return 'Vergi Kimlik Numarası algoritmaya uymuyor.';
                   }
                   return null;

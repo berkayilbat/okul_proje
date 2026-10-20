@@ -1,6 +1,9 @@
 <?php
 require_once 'db.php';
 
+// IP Bazlı Hız Sınırı: 5 istek / 300 saniye (Aşılırsa 180 sn blok)
+apply_rate_limit($conn, 'register', 5, 300, 180);
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     echo json_encode(["status" => "error", "message" => "Invalid request method."]);
     exit();
@@ -27,6 +30,17 @@ $password = password_hash($data->password, PASSWORD_BCRYPT);
 $tc_kimlik_no = isset($data->tc_kimlik_no) ? sanitize_input($data->tc_kimlik_no) : null;
 $company_name = isset($data->company_name) ? sanitize_input($data->company_name) : null;
 $tax_no = isset($data->tax_no) ? sanitize_input($data->tax_no) : null;
+
+if ($role === 'Employer') {
+    if (empty($tax_no)) {
+        echo json_encode(["status" => "error", "message" => "İşveren için Vergi Kimlik Numarası zorunludur."]);
+        exit();
+    }
+    if (!is_valid_vkn($tax_no)) {
+        echo json_encode(["status" => "error", "message" => "Vergi Kimlik Numarası algoritmaya uymuyor (10 haneli VKN olmalıdır)."]);
+        exit();
+    }
+}
 
 $altPhone = (strpos($phone, '0') === 0 && strlen($phone) === 11) ? substr($phone, 1) : ('0' . $phone);
 $checkStmt = $conn->prepare("SELECT id FROM users WHERE phone = ? OR phone = ?");

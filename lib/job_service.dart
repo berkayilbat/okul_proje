@@ -1,7 +1,7 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'server_config.dart';
+import 'utils/network_helper.dart';
 
 class JobService {
   static String get _baseUrl => ServerConfig.baseUrl;
@@ -19,7 +19,7 @@ class JobService {
       final prefs = await SharedPreferences.getInstance();
       final phone = prefs.getString('user_phone') ?? '';
 
-      final response = await http.post(
+      final response = await NetworkHelper.postWithRetry(
         Uri.parse('$_baseUrl/add_job.php'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
@@ -33,46 +33,42 @@ class JobService {
         }),
       );
 
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body);
-      }
+      return NetworkHelper.parseResponse(response);
+    } catch (e) {
       return {
         'status': 'error',
-        'message': 'HTTP Hatası: ${response.statusCode}',
+        'is_network_error': NetworkHelper.isNetworkException(e),
+        'message': NetworkHelper.getFriendlyErrorMessage(e),
       };
-    } catch (e) {
-      return {'status': 'error', 'message': 'Bağlantı hatası: $e'};
     }
   }
 
   // İlan Silme (İşveren)
   static Future<Map<String, dynamic>> deleteJob(String jobId) async {
     try {
-      final response = await http.post(
+      final response = await NetworkHelper.postWithRetry(
         Uri.parse('$_baseUrl/delete_job.php'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'job_id': jobId}),
       );
 
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body);
-      }
+      return NetworkHelper.parseResponse(response);
+    } catch (e) {
       return {
         'status': 'error',
-        'message': 'HTTP Hatası: ${response.statusCode}',
+        'is_network_error': NetworkHelper.isNetworkException(e),
+        'message': NetworkHelper.getFriendlyErrorMessage(e),
       };
-    } catch (e) {
-      return {'status': 'error', 'message': 'Bağlantı hatası: $e'};
     }
   }
 
-  // İlanları Getirme (İşveren kendi açtığı, Çalışan tüm açık ilanları)
-  static Future<List<dynamic>> getJobs(bool isEmployer) async {
+  // İlanları Getirme (Detaylı durum ve hata bilgisi içeren güvenli metod)
+  static Future<Map<String, dynamic>> fetchJobs(bool isEmployer) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final phone = prefs.getString('user_phone') ?? '';
 
-      final response = await http.post(
+      final response = await NetworkHelper.postWithRetry(
         Uri.parse('$_baseUrl/get_jobs.php'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
@@ -81,25 +77,64 @@ class JobService {
         }),
       );
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data['status'] == 'success') {
-          return data['data'];
-        }
+      final parsed = NetworkHelper.parseResponse(response);
+      if (parsed['is_rate_limited'] == true) {
+        return {
+          'success': false,
+          'has_error': true,
+          'is_rate_limited': true,
+          'is_network_error': false,
+          'data': [],
+          'message': parsed['message'],
+        };
       }
+
+      if (response.statusCode == 200) {
+        final data = parsed;
+        if (data['status'] == 'success') {
+          return {
+            'success': true,
+            'data': data['data'] ?? [],
+          };
+        }
+        return {
+          'success': false,
+          'has_error': true,
+          'is_network_error': false,
+          'message': data['message'] ?? 'İlanlar alınamadı.',
+        };
+      }
+      return {
+        'success': false,
+        'has_error': true,
+        'is_network_error': false,
+        'message': parsed['message'] ?? 'HTTP Hatası: ${response.statusCode}',
+      };
     } catch (e) {
-      print('İlanları çekerken hata: $e');
+      return {
+        'success': false,
+        'is_network_error': NetworkHelper.isNetworkException(e),
+        'message': NetworkHelper.getFriendlyErrorMessage(e),
+      };
+    }
+  }
+
+  // İlanları Getirme (Geriye dönük uyumluluk)
+  static Future<List<dynamic>> getJobs(bool isEmployer) async {
+    final res = await fetchJobs(isEmployer);
+    if (res['success'] == true && res['data'] is List) {
+      return res['data'];
     }
     return [];
   }
 
-  // Başvuruları Getirme
-  static Future<List<dynamic>> getApplications(bool isEmployer) async {
+  // Başvuruları Getirme (Detaylı durum ve hata bilgisi içeren güvenli metod)
+  static Future<Map<String, dynamic>> fetchApplications(bool isEmployer) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final phone = prefs.getString('user_phone') ?? '';
 
-      final response = await http.post(
+      final response = await NetworkHelper.postWithRetry(
         Uri.parse('$_baseUrl/get_applications.php'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
@@ -109,14 +144,53 @@ class JobService {
         }),
       );
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data['status'] == 'success') {
-          return data['data'];
-        }
+      final parsed = NetworkHelper.parseResponse(response);
+      if (parsed['is_rate_limited'] == true) {
+        return {
+          'success': false,
+          'has_error': true,
+          'is_rate_limited': true,
+          'is_network_error': false,
+          'data': [],
+          'message': parsed['message'],
+        };
       }
+
+      if (response.statusCode == 200) {
+        final data = parsed;
+        if (data['status'] == 'success') {
+          return {
+            'success': true,
+            'data': data['data'] ?? [],
+          };
+        }
+        return {
+          'success': false,
+          'has_error': true,
+          'is_network_error': false,
+          'message': data['message'] ?? 'Başvurular alınamadı.',
+        };
+      }
+      return {
+        'success': false,
+        'has_error': true,
+        'is_network_error': false,
+        'message': parsed['message'] ?? 'HTTP Hatası: ${response.statusCode}',
+      };
     } catch (e) {
-      print('Başvuruları çekerken hata: $e');
+      return {
+        'success': false,
+        'is_network_error': NetworkHelper.isNetworkException(e),
+        'message': NetworkHelper.getFriendlyErrorMessage(e),
+      };
+    }
+  }
+
+  // Başvuruları Getirme (Geriye dönük uyumluluk)
+  static Future<List<dynamic>> getApplications(bool isEmployer) async {
+    final res = await fetchApplications(isEmployer);
+    if (res['success'] == true && res['data'] is List) {
+      return res['data'];
     }
     return [];
   }
@@ -127,15 +201,19 @@ class JobService {
       final prefs = await SharedPreferences.getInstance();
       final phone = prefs.getString('user_phone') ?? '';
 
-      final response = await http.post(
+      final response = await NetworkHelper.postWithRetry(
         Uri.parse('$_baseUrl/apply_job.php'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'job_id': jobId, 'employee_phone': phone}),
       );
 
-      return jsonDecode(response.body);
+      return NetworkHelper.parseResponse(response);
     } catch (e) {
-      return {'status': 'error', 'message': 'Bağlantı hatası: $e'};
+      return {
+        'status': 'error',
+        'is_network_error': NetworkHelper.isNetworkException(e),
+        'message': NetworkHelper.getFriendlyErrorMessage(e),
+      };
     }
   }
 
@@ -145,7 +223,7 @@ class JobService {
     String action,
   ) async {
     try {
-      final response = await http.post(
+      final response = await NetworkHelper.postWithRetry(
         Uri.parse('$_baseUrl/manage_application.php'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
@@ -154,9 +232,13 @@ class JobService {
         }),
       );
 
-      return jsonDecode(response.body);
+      return NetworkHelper.parseResponse(response);
     } catch (e) {
-      return {'status': 'error', 'message': 'Bağlantı hatası: $e'};
+      return {
+        'status': 'error',
+        'is_network_error': NetworkHelper.isNetworkException(e),
+        'message': NetworkHelper.getFriendlyErrorMessage(e),
+      };
     }
   }
 
@@ -167,7 +249,7 @@ class JobService {
     String comment,
   ) async {
     try {
-      final response = await http.post(
+      final response = await NetworkHelper.postWithRetry(
         Uri.parse('$_baseUrl/submit_review.php'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
@@ -177,16 +259,13 @@ class JobService {
         }),
       );
 
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body);
-      } else {
-        return {
-          'status': 'error',
-          'message': 'HTTP Hatası: ${response.statusCode}',
-        };
-      }
+      return NetworkHelper.parseResponse(response);
     } catch (e) {
-      return {'status': 'error', 'message': 'Bağlantı hatası: $e'};
+      return {
+        'status': 'error',
+        'is_network_error': NetworkHelper.isNetworkException(e),
+        'message': NetworkHelper.getFriendlyErrorMessage(e),
+      };
     }
   }
 
@@ -197,7 +276,7 @@ class JobService {
     String comment,
   ) async {
     try {
-      final response = await http.post(
+      final response = await NetworkHelper.postWithRetry(
         Uri.parse('$_baseUrl/submit_employer_review.php'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
@@ -207,36 +286,39 @@ class JobService {
         }),
       );
 
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body);
-      } else {
-        return {
-          'status': 'error',
-          'message': 'HTTP Hatası: ${response.statusCode}',
-        };
-      }
+      return NetworkHelper.parseResponse(response);
     } catch (e) {
-      return {'status': 'error', 'message': 'Bağlantı hatası: $e'};
+      return {
+        'status': 'error',
+        'is_network_error': NetworkHelper.isNetworkException(e),
+        'message': NetworkHelper.getFriendlyErrorMessage(e),
+      };
     }
   }
 
   // Tek tıkla demo verilerini yükleme / sıfırlama
   static Future<Map<String, dynamic>> seedDatabase() async {
     try {
-      final response = await http.get(
+      final response = await NetworkHelper.getWithRetry(
         Uri.parse('$_baseUrl/seed.php'),
         headers: {'Content-Type': 'application/json'},
-      ).timeout(const Duration(seconds: 10));
+        timeout: const Duration(seconds: 10),
+      );
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       }
       return {
         'status': 'error',
+        'is_network_error': false,
         'message': 'HTTP Hatası: ${response.statusCode}',
       };
     } catch (e) {
-      return {'status': 'error', 'message': 'Bağlantı hatası: $e'};
+      return {
+        'status': 'error',
+        'is_network_error': NetworkHelper.isNetworkException(e),
+        'message': NetworkHelper.getFriendlyErrorMessage(e),
+      };
     }
   }
 }

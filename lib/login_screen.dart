@@ -300,15 +300,31 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
 
-      setState(() {
-        _failedAttempts++;
-      });
+      final isNetworkError = loginRes['is_network_error'] == true;
+      final isRateLimited = loginRes['is_rate_limited'] == true;
+      if (!isNetworkError && !isRateLimited) {
+        setState(() {
+          _failedAttempts++;
+        });
+      }
+
       int remaining = 5 - _failedAttempts;
       final errorMsg = loginRes['message'] ?? 'Giriş yapılamadı.';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('$errorMsg ${remaining > 0 ? "Kalan hakkınız: $remaining" : "Giriş engellendi."}'),
+          content: Text(
+            isNetworkError || isRateLimited
+                ? errorMsg
+                : '$errorMsg ${remaining > 0 ? "Kalan hakkınız: $remaining" : "Giriş engellendi."}',
+          ),
           backgroundColor: Colors.red,
+          action: isNetworkError
+              ? SnackBarAction(
+                  label: 'Yeniden Dene',
+                  textColor: Colors.white,
+                  onPressed: _login,
+                )
+              : null,
         ),
       );
     }

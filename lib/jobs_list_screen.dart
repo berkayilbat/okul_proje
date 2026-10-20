@@ -4,6 +4,8 @@ import 'employee_profile_screen.dart';
 import 'qr_generate_screen.dart';
 import 'qr_scan_screen.dart';
 import 'widgets/review_dialog.dart';
+import 'widgets/network_error_view.dart';
+import 'widgets/app_refresh_indicator.dart';
 
 class JobsListScreen extends StatefulWidget {
   final bool isEmployer;
@@ -21,6 +23,8 @@ class _JobsListScreenState extends State<JobsListScreen> {
   List<dynamic> _jobs = [];
   List<dynamic> _applications = []; // İşveren ise başvuru verisi 
   bool _isLoading = true;
+  bool _hasNetworkError = false;
+  String? _networkErrorMessage;
 
   @override
   void initState() {
@@ -29,18 +33,32 @@ class _JobsListScreenState extends State<JobsListScreen> {
   }
 
   Future<void> _fetchJobs() async {
-    setState(() => _isLoading = true);
-    final jobs = await JobService.getJobs(widget.isEmployer);
-    // Her iki rol için de kendi başvurularını / kendisine gelen başvuruları çekeriz
-    final apps = await JobService.getApplications(widget.isEmployer);
-    
-    if (mounted) {
+    setState(() {
+      _isLoading = true;
+      _hasNetworkError = false;
+      _networkErrorMessage = null;
+    });
+
+    final jobsRes = await JobService.fetchJobs(widget.isEmployer);
+    final appsRes = await JobService.fetchApplications(widget.isEmployer);
+
+    if (!mounted) return;
+
+    if (jobsRes['success'] != true && (jobsRes['is_network_error'] == true || _jobs.isEmpty)) {
       setState(() {
-        _jobs = jobs;
-        _applications = apps;
+        _hasNetworkError = true;
+        _networkErrorMessage = jobsRes['message']?.toString();
         _isLoading = false;
       });
+      return;
     }
+
+    setState(() {
+      _jobs = (jobsRes['data'] as List?) ?? [];
+      _applications = (appsRes['data'] as List?) ?? [];
+      _hasNetworkError = false;
+      _isLoading = false;
+    });
   }
 
   Future<void> _applyForJob(String jobId) async {
@@ -58,6 +76,13 @@ class _JobsListScreenState extends State<JobsListScreen> {
       SnackBar(
         content: Text(result['message'] ?? (result['status'] == 'success' ? 'Başvuru başarılı!' : 'Bir hata oluştu')),
         backgroundColor: result['status'] == 'success' ? Colors.green : Colors.red,
+        action: result['status'] != 'success' && result['is_network_error'] == true
+            ? SnackBarAction(
+                label: 'Yeniden Dene',
+                textColor: Colors.white,
+                onPressed: () => _applyForJob(jobId),
+              )
+            : null,
       ),
     );
     if (result['status'] == 'success') {
@@ -79,6 +104,13 @@ class _JobsListScreenState extends State<JobsListScreen> {
       SnackBar(
         content: Text(result['message'] ?? 'İşlem yapıldı'),
         backgroundColor: result['status'] == 'success' ? Colors.green : Colors.red,
+        action: result['status'] != 'success' && result['is_network_error'] == true
+            ? SnackBarAction(
+                label: 'Yeniden Dene',
+                textColor: Colors.white,
+                onPressed: () => _manageApplication(id, action),
+              )
+            : null,
       ),
     );
     if (result['status'] == 'success') {
@@ -149,13 +181,22 @@ class _JobsListScreenState extends State<JobsListScreen> {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator(color: Color(0xFF111827)));
     }
+
+    if (_hasNetworkError && _jobs.isEmpty) {
+      return AppRefreshIndicator(
+        onRefresh: _fetchJobs,
+        child: NetworkErrorView(
+          message: _networkErrorMessage,
+          onRetry: _fetchJobs,
+        ),
+      );
+    }
     
     if (!widget.isEmployer) {
       final filteredJobs = _jobs.where((job) => _passesFilters(job)).toList();
 
-      return RefreshIndicator(
+      return AppRefreshIndicator(
         onRefresh: _fetchJobs,
-        color: const Color(0xFF111827),
         child: filteredJobs.isEmpty ? _buildEmptyState() : _buildJobsList(filteredJobs),
       );
     }
@@ -181,9 +222,8 @@ class _JobsListScreenState extends State<JobsListScreen> {
       }
     }).toList();
 
-    return RefreshIndicator(
+    return AppRefreshIndicator(
       onRefresh: _fetchJobs,
-      color: const Color(0xFF111827),
       child: targetJobs.isEmpty ? _buildEmptyState() : _buildJobsList(targetJobs),
     );
   }

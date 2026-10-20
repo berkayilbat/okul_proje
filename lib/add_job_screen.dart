@@ -72,6 +72,13 @@ class _AddJobScreenState extends State<AddJobScreen> {
           SnackBar(
             content: Text(result['message'] ?? 'Bir hata oluştu'),
             backgroundColor: Colors.red,
+            action: result['is_network_error'] == true
+                ? SnackBarAction(
+                    label: 'Yeniden Dene',
+                    textColor: Colors.white,
+                    onPressed: _publishJob,
+                  )
+                : null,
           ),
         );
       }

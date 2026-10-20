@@ -8,6 +8,7 @@ import 'jobs_list_screen.dart';
 import 'applications_screen.dart';
 import 'edit_profile_screen.dart';
 import 'widgets/animated_theme_toggle.dart';
+import 'widgets/app_refresh_indicator.dart';
 import 'theme/app_theme.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -396,9 +397,14 @@ class _HomeScreenState extends State<HomeScreen> {
     final cardBg = isDark ? AppColors.darkCard : Colors.white;
     final cardBorder = isDark ? AppColors.darkBorder : Colors.grey.shade200;
 
-    return SingleChildScrollView(
-                      padding: const EdgeInsets.all(24.0),
-                      child: Column(
+    return AppRefreshIndicator(
+      onRefresh: () async {
+        _loadUserData();
+      },
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
                         children: [
                           const SizedBox(height: 16),
                           Row(
@@ -836,7 +842,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           const SizedBox(height: 32),
                         ],
                       ),
-                    );
+                    ),
+    );
   }
 
   Widget _buildNavItem(int index, IconData icon, String label, bool isDark) {

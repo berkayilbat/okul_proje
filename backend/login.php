@@ -1,6 +1,9 @@
 <?php
 require_once 'db.php';
 
+// IP Bazlı Hız Sınırı (Rate Limiting): 5 istek / 60 saniye (Aşılırsa 60 sn blok)
+apply_rate_limit($conn, 'login', 5, 60, 60);
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     echo json_encode(["status" => "error", "message" => "Geçersiz istek metodu."]);
     exit();
@@ -33,6 +36,7 @@ if ($attempts >= 5 && (time() - $lastAttemptTime) < 60) {
 
 if ((time() - $lastAttemptTime) >= 60) {
     $_SESSION[$attemptsKey] = 0;
+        reset_rate_limit($conn, get_client_ip(), 'login');
     $attempts = 0;
 }
 

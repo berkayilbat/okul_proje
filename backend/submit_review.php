@@ -1,6 +1,9 @@
 <?php
 require_once 'db.php';
 
+// IP Bazlı Hız Sınırı: 10 istek / 60 saniye
+apply_rate_limit($conn, 'submit_review', 10, 60, 60);
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     echo json_encode(["status" => "error", "message" => "Geçersiz istek metodu."]);
     exit();

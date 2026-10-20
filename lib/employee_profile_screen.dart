@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'auth_service.dart';
+import 'widgets/app_refresh_indicator.dart';
 
 class EmployeeProfileScreen extends StatefulWidget {
   final String firstName;
@@ -60,9 +61,12 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
       ),
       body: _isLoading 
         ? Center(child: CircularProgressIndicator(color: primaryColor))
-        : SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
+        : AppRefreshIndicator(
+            onRefresh: _fetchProfileData,
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
           children: [
             const SizedBox(height: 20),
             Center(
@@ -201,7 +205,8 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
           ],
         ),
       ),
-    );
+    ),
+  );
   }
 
   Widget _buildProfileInfoCard({

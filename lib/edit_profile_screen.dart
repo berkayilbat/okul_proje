@@ -3,6 +3,10 @@ import 'constants.dart';
 import 'auth_service.dart';
 import 'validators.dart';
 import 'widgets/phone_input_formatter.dart';
+import 'widgets/network_error_view.dart';
+import 'widgets/app_refresh_indicator.dart';
+import 'package:flutter/services.dart';
+import 'theme/app_theme.dart';
 
 class EditProfileScreen extends StatefulWidget {
   final String userPhone;
@@ -23,10 +27,38 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   bool _isLoading = true;
   bool _isSaving = false;
+  bool _hasLoadError = false;
+  String? _errorMessage;
 
   final List<String> _availableProfessions = List.from(AppConstants.availableProfessions);
 
   Set<String> _selectedProfessions = {};
+
+  Widget? _buildTaxSuffixIcon(String text) {
+    final clean = text.replaceAll(RegExp(r'\D'), '');
+    if (clean.isEmpty) return null;
+
+    if (clean.length == 10) {
+      final isValid = Validators.isValidTaxNumber(clean);
+      return Icon(
+        isValid ? Icons.check_circle_rounded : Icons.cancel_rounded,
+        color: isValid ? AppColors.success : AppColors.error,
+        size: 20,
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
+      child: Text(
+        '${clean.length}/10',
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+          color: Colors.grey,
+        ),
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -35,9 +67,25 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Future<void> _loadProfileDetails() async {
-    final details = await AuthService.getProfileDetails(widget.userPhone);
+    setState(() {
+      _isLoading = true;
+      _hasLoadError = false;
+      _errorMessage = null;
+    });
+
+    final res = await AuthService.getProfileDetails(widget.userPhone);
     if (!mounted) return;
 
+    if (res['success'] != true) {
+      setState(() {
+        _hasLoadError = true;
+        _errorMessage = res['message']?.toString() ?? 'Profil bilgileri alınamadı.';
+        _isLoading = false;
+      });
+      return;
+    }
+
+    final details = (res['data'] as Map<String, dynamic>?) ?? {};
     if (details.isNotEmpty) {
       _phoneController.text = PhoneInputFormatter.format(details['phone']?.toString() ?? '');
       _addressController.text = details['address']?.toString() ?? '';
@@ -50,7 +98,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
          final profList = profs.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
          _selectedProfessions = profList.toSet();
          
-         // Eğer standart listede olmayan bir meslek yazılmışsa onu da listeye ekleyelim ki seçili görünsün
          for (var prof in profList) {
            if (!_availableProfessions.contains(prof)) {
              _availableProfessions.add(prof);
@@ -60,6 +107,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
     
     setState(() {
+      _hasLoadError = false;
       _isLoading = false;
     });
   }
@@ -83,6 +131,28 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     if (widget.role == 'Employee' && _selectedProfessions.isEmpty) {
        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Lütfen en az bir meslek seçin.')));
        return;
+    }
+
+    if (widget.role == 'Employer') {
+      final taxNo = _taxNoController.text.trim();
+      if (taxNo.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Vergi Kimlik Numarası zorunludur.')),
+        );
+        return;
+      }
+      if (taxNo.length != 10) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Vergi Kimlik No tam 10 haneli olmalıdır.')),
+        );
+        return;
+      }
+      if (!Validators.isValidTaxNumber(taxNo)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Vergi Kimlik Numarası algoritmaya uymuyor.')),
+        );
+        return;
+      }
     }
 
     setState(() => _isSaving = true);
@@ -110,7 +180,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       Navigator.pop(context, newPhone);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(result['message'] ?? 'Güncelleme hatası.'), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text(result['message'] ?? 'Güncelleme hatası.'),
+          backgroundColor: Colors.red,
+          action: result['is_network_error'] == true
+              ? SnackBarAction(
+                  label: 'Yeniden Dene',
+                  textColor: Colors.white,
+                  onPressed: _saveProfile,
+                )
+              : null,
+        ),
       );
     }
   }
@@ -127,9 +207,20 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       ),
       body: _isLoading 
         ? Center(child: CircularProgressIndicator(color: primaryColor))
-        : SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Column(
+        : _hasLoadError
+            ? AppRefreshIndicator(
+                onRefresh: _loadProfileDetails,
+                child: NetworkErrorView(
+                  message: _errorMessage,
+                  onRetry: _loadProfileDetails,
+                ),
+              )
+            : AppRefreshIndicator(
+                onRefresh: _loadProfileDetails,
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Kişisel Bilgiler', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: primaryColor)),
@@ -182,11 +273,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   const SizedBox(height: 16),
                   TextField(
                     controller: _taxNoController,
+                    maxLength: 10,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'Vergi Kimlik No / TC Kimlik No',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.business),
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    onChanged: (_) => setState(() {}),
+                    decoration: InputDecoration(
+                      labelText: 'Vergi Kimlik Numarası (10 Hane)',
+                      hintText: '10 haneli vergi no',
+                      border: const OutlineInputBorder(),
+                      prefixIcon: const Icon(Icons.receipt_long_outlined),
+                      suffixIcon: _buildTaxSuffixIcon(_taxNoController.text),
+                      counterText: '',
                     ),
                   ),
                   const SizedBox(height: 24),
@@ -261,7 +358,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 )
               ],
             ),
-          )
+          ),
+        )
     );
   }
 }

@@ -13,6 +13,7 @@ try {
         $conn->exec("DROP TABLE IF EXISTS `job_applications`;");
         $conn->exec("DROP TABLE IF EXISTS `jobs`;");
         $conn->exec("DROP TABLE IF EXISTS `users`;");
+        $conn->exec("DROP TABLE IF EXISTS `rate_limits`;");
         $conn->exec("SET FOREIGN_KEY_CHECKS = 1;");
         echo json_encode([
             "status" => "success",
@@ -27,6 +28,7 @@ try {
         $conn->exec("TRUNCATE TABLE `job_applications`;");
         $conn->exec("TRUNCATE TABLE `jobs`;");
         $conn->exec("TRUNCATE TABLE `users`;");
+        reset_rate_limit($conn);
         $conn->exec("SET FOREIGN_KEY_CHECKS = 1;");
         echo json_encode([
             "status" => "success",

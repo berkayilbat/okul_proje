@@ -1,9 +1,8 @@
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'dart:io' show Platform;
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'server_config.dart';
+import 'utils/network_helper.dart';
 
 class AuthService {
   static const String _keyPhone = 'user_phone';
@@ -47,14 +46,25 @@ class AuthService {
     bool rememberMe,
   ) async {
     try {
-      final response = await http.post(
+      final response = await NetworkHelper.postWithRetry(
         Uri.parse('$_baseUrl/login.php'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'phone': phone, 'password': password}),
       );
 
+      final parsed = NetworkHelper.parseResponse(response);
+      if (parsed['is_rate_limited'] == true) {
+        return {
+          'success': false,
+          'is_network_error': false,
+          'is_rate_limited': true,
+          'retry_after': parsed['retry_after'],
+          'message': parsed['message'],
+        };
+      }
+
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+        final data = parsed;
         if (data['status'] == 'success') {
           // Giriş Başarılı
           final prefs = await SharedPreferences.getInstance();
@@ -106,20 +116,30 @@ class AuthService {
         } else {
           return {
             'success': false,
+            'is_network_error': false,
+            'is_rate_limited': false,
             'message': data['message'] ?? 'Giriş başarısız',
           };
         }
       }
+      return {
+        'success': false,
+        'is_network_error': false,
+        'is_rate_limited': false,
+        'message': parsed['message'] ?? 'HTTP Hatası: ${response.statusCode}',
+      };
     } catch (e) {
-      print('HTTP İstek Hatası (Login): $e');
-      return {'success': false, 'message': 'Bağlantı hatası: $e'};
+      return {
+        'success': false,
+        'is_network_error': NetworkHelper.isNetworkException(e),
+        'message': NetworkHelper.getFriendlyErrorMessage(e),
+      };
     }
-    return {'success': false, 'message': 'Sunucuya bağlanılamadı'};
   }
 
   static Future<bool> setUserRole(String phone, String role) async {
     try {
-      final response = await http.post(
+      final response = await NetworkHelper.postWithRetry(
         Uri.parse('$_baseUrl/set_user_role.php'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'phone': phone, 'role': role}),
@@ -133,9 +153,7 @@ class AuthService {
           return true;
         }
       }
-    } catch (e) {
-      print('HTTP İstek Hatası (Set User Role): $e');
-    }
+    } catch (_) {}
     return false;
   }
 
@@ -151,7 +169,7 @@ class AuthService {
     String? taxNo,
   }) async {
     try {
-      final response = await http.post(
+      final response = await NetworkHelper.postWithRetry(
         Uri.parse('$_baseUrl/register.php'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
@@ -167,41 +185,61 @@ class AuthService {
         }),
       );
 
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body);
-      } else {
-        return {
-          'status': 'error',
-          'message': 'HTTP Hatası: ${response.statusCode}',
-        };
-      }
+      return NetworkHelper.parseResponse(response);
     } catch (e) {
-      print('HTTP İstek Hatası (Register): $e');
-      return {'status': 'error', 'message': 'Bağlantı hatası: $e'};
+      return {
+        'status': 'error',
+        'is_network_error': NetworkHelper.isNetworkException(e),
+        'message': NetworkHelper.getFriendlyErrorMessage(e),
+      };
     }
   }
 
   static Future<Map<String, dynamic>> getUserProfileStats(String phone, String role) async {
     try {
-      final response = await http.post(
+      final response = await NetworkHelper.postWithRetry(
         Uri.parse('$_baseUrl/get_user_profile.php'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'phone': phone, 'role': role}),
       );
 
+      final parsed = NetworkHelper.parseResponse(response);
+      if (parsed['is_rate_limited'] == true) {
+        return {
+          'wallet_balance': 0.0,
+          'job_count': 0,
+          'average_rating': 0.0,
+          'has_error': true,
+          'is_rate_limited': true,
+          'is_network_error': false,
+          'message': parsed['message'],
+        };
+      }
+
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+        final data = parsed;
         if (data['status'] == 'success') {
-          return data['data'];
+          return {
+            ...data['data'],
+            'has_error': false,
+          };
         }
       }
     } catch (e) {
-      print('HTTP İstek Hatası (Profile Stats): $e');
+      return {
+        'wallet_balance': 0.0,
+        'job_count': 0,
+        'average_rating': 0.0,
+        'has_error': true,
+        'is_network_error': NetworkHelper.isNetworkException(e),
+        'message': NetworkHelper.getFriendlyErrorMessage(e),
+      };
     }
     return {
       'wallet_balance': 0.0,
       'job_count': 0,
-      'average_rating': 0.0
+      'average_rating': 0.0,
+      'has_error': false,
     };
   }
 
@@ -231,7 +269,7 @@ class AuthService {
         request.files.add(await http.MultipartFile.fromPath('past_workplaces[]', path));
       }
 
-      var streamedResponse = await request.send();
+      var streamedResponse = await request.send().timeout(const Duration(seconds: 15));
       var response = await http.Response.fromStream(streamedResponse);
       
       if (response.statusCode == 200) {
@@ -241,16 +279,20 @@ class AuthService {
         }
         return data;
       } else {
-        return {'status': 'error', 'message': 'Hata kodu: ${response.statusCode}'};
+        return {'status': 'error', 'is_network_error': false, 'message': 'Hata kodu: ${response.statusCode}'};
       }
     } catch (e) {
-      return {'status': 'error', 'message': 'Bağlantı Hatası: $e'};
+      return {
+        'status': 'error',
+        'is_network_error': NetworkHelper.isNetworkException(e),
+        'message': NetworkHelper.getFriendlyErrorMessage(e),
+      };
     }
   }
 
   static Future<Map<String, dynamic>> getProfileDetails(String phone) async {
     try {
-      final response = await http.post(
+      final response = await NetworkHelper.postWithRetry(
         Uri.parse('$_baseUrl/get_profile_details.php'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'phone': phone}),
@@ -259,13 +301,20 @@ class AuthService {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data['status'] == 'success') {
-          return data['data'];
+          return {
+            'success': true,
+            'data': data['data'] ?? {},
+          };
         }
       }
+      return {'success': false, 'message': 'Profil bilgileri alınamadı.'};
     } catch (e) {
-      print('HTTP İstek Hatası (Profile Details): $e');
+      return {
+        'success': false,
+        'is_network_error': NetworkHelper.isNetworkException(e),
+        'message': NetworkHelper.getFriendlyErrorMessage(e),
+      };
     }
-    return {};
   }
 
   static Future<Map<String, dynamic>> updateProfile({
@@ -278,7 +327,7 @@ class AuthService {
     String? taxNo,
   }) async {
     try {
-      final response = await http.post(
+      final response = await NetworkHelper.postWithRetry(
         Uri.parse('$_baseUrl/update_profile.php'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
@@ -292,8 +341,12 @@ class AuthService {
         }),
       );
 
+      final data = NetworkHelper.parseResponse(response);
+      if (data['is_rate_limited'] == true) {
+        return data;
+      }
+
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
         if (data['status'] == 'success') {
            final prefs = await SharedPreferences.getInstance();
            if (oldPhone != phone) {
@@ -306,12 +359,16 @@ class AuthService {
       } else {
         return {
           'status': 'error',
-          'message': 'HTTP Hatası: ${response.statusCode}',
+          'is_network_error': false,
+          'message': data['message'] ?? 'HTTP Hatası: ${response.statusCode}',
         };
       }
     } catch (e) {
-      print('HTTP İstek Hatası (Update Profile): $e');
-      return {'status': 'error', 'message': 'Bağlantı hatası: $e'};
+      return {
+        'status': 'error',
+        'is_network_error': NetworkHelper.isNetworkException(e),
+        'message': NetworkHelper.getFriendlyErrorMessage(e),
+      };
     }
   }
 
@@ -327,4 +384,3 @@ class AuthService {
     await prefs.remove('is_profile_complete');
   }
 }
-

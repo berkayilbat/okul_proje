@@ -1,3 +1,4 @@
+import 'utils/app_page_route.dart';
 import 'package:flutter/material.dart';
 import 'auth_service.dart';
 import 'widgets/app_refresh_indicator.dart';
@@ -73,6 +74,7 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
             Center(
               child: Hero(
                 tag: 'employee-avatar-${widget.phone}',
+                flightShuttleBuilder: AppHeroHelper.flightShuttleBuilder,
                 child: CircleAvatar(
                   radius: 60,
                   backgroundColor: isDark ? const Color(0xFF1E232B) : const Color(0xFF111827).withOpacity(0.1),
@@ -90,6 +92,7 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
             const SizedBox(height: 20),
             Hero(
               tag: 'employee-name-${widget.phone}',
+              flightShuttleBuilder: AppHeroHelper.flightShuttleBuilder,
               child: Material(
                 type: MaterialType.transparency,
                 child: Text(

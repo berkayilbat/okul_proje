@@ -1,3 +1,4 @@
+import 'utils/app_page_route.dart';
 import 'package:flutter/material.dart';
 import 'theme/app_theme.dart';
 
@@ -74,6 +75,7 @@ class JobDetailScreen extends StatelessWidget {
                             Expanded(
                               child: Hero(
                                 tag: 'job-title-$jobId',
+                                flightShuttleBuilder: AppHeroHelper.flightShuttleBuilder,
                                 child: Material(
                                   type: MaterialType.transparency,
                                   child: Text(
@@ -91,6 +93,7 @@ class JobDetailScreen extends StatelessWidget {
                             const SizedBox(width: 12),
                             Hero(
                               tag: 'job-wage-$jobId',
+                              flightShuttleBuilder: AppHeroHelper.flightShuttleBuilder,
                               child: Material(
                                 type: MaterialType.transparency,
                                 child: Container(

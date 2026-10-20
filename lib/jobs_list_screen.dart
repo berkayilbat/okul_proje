@@ -352,6 +352,9 @@ class _JobsListScreenState extends State<JobsListScreen> {
                     Expanded(
                       child: Hero(
                         tag: 'job-title-${job['id']}',
+                        createRectTween: AppHeroHelper.fadeInPlaceRectTween,
+                        flightShuttleBuilder: AppHeroHelper.flightShuttleBuilder,
+                        placeholderBuilder: (context, heroSize, child) => child,
                         child: Material(
                           type: MaterialType.transparency,
                           child: Text(
@@ -422,6 +425,9 @@ class _JobsListScreenState extends State<JobsListScreen> {
                 const SizedBox(width: 8),
                 Hero(
                   tag: 'job-wage-${job['id']}',
+                  createRectTween: AppHeroHelper.fadeInPlaceRectTween,
+                  flightShuttleBuilder: AppHeroHelper.flightShuttleBuilder,
+                  placeholderBuilder: (context, heroSize, child) => child,
                   child: Material(
                     type: MaterialType.transparency,
                     child: Container(
@@ -717,6 +723,9 @@ class _JobsListScreenState extends State<JobsListScreen> {
                             children: [
                               Hero(
                                 tag: 'employee-avatar-${app['employee_phone']}',
+                                createRectTween: AppHeroHelper.fadeInPlaceRectTween,
+                                flightShuttleBuilder: AppHeroHelper.flightShuttleBuilder,
+                                placeholderBuilder: (context, heroSize, child) => child,
                                 child: CircleAvatar(
                                   radius: 12,
                                   backgroundColor: isDark ? const Color(0xFF1E232B) : const Color(0xFF111827).withOpacity(0.1),
@@ -734,6 +743,9 @@ class _JobsListScreenState extends State<JobsListScreen> {
                               Expanded(
                                 child: Hero(
                                   tag: 'employee-name-${app['employee_phone']}',
+                                  createRectTween: AppHeroHelper.fadeInPlaceRectTween,
+                                  flightShuttleBuilder: AppHeroHelper.flightShuttleBuilder,
+                                  placeholderBuilder: (context, heroSize, child) => child,
                                   child: Material(
                                     type: MaterialType.transparency,
                                     child: Text(

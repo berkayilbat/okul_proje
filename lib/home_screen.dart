@@ -22,6 +22,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
+  int _previousIndex = 0;
   int _listUpdateKey = 0;
 
   Set<String> _selectedJobFilters = {};
@@ -105,8 +106,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _onItemTapped(int index) {
+    if (index == _selectedIndex) return;
     HapticFeedback.lightImpact();
     setState(() {
+      _previousIndex = _selectedIndex;
       _selectedIndex = index;
     });
     // Her profil sekmesine geçişte veya ana sekmeye geçişte bakiyeyi vs. yenile
@@ -143,13 +146,28 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              letterSpacing: -0.5,
-              color: isDark ? Colors.white : const Color(0xFF111827),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 280),
+            transitionBuilder: (child, animation) {
+              final isForward = _selectedIndex >= _previousIndex;
+              final slideTween = Tween<Offset>(
+                begin: Offset(isForward ? 0.25 : -0.25, 0.0),
+                end: Offset.zero,
+              ).chain(CurveTween(curve: Curves.easeOutCubic));
+              return SlideTransition(
+                position: animation.drive(slideTween),
+                child: FadeTransition(opacity: animation, child: child),
+              );
+            },
+            child: Text(
+              title,
+              key: ValueKey<String>(title),
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                letterSpacing: -0.5,
+                color: isDark ? Colors.white : const Color(0xFF111827),
+              ),
             ),
           ),
           if (showFilter)
@@ -287,7 +305,14 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             if (!isProfileTab) _buildTopHeader(isEmployer, isDark),
             Expanded(
-              child: _buildCurrentTab(isEmployer),
+              child: DirectionalTabSwitcher(
+                currentIndex: _selectedIndex,
+                previousIndex: _previousIndex,
+                child: KeyedSubtree(
+                  key: ValueKey<int>(_selectedIndex),
+                  child: _buildCurrentTab(isEmployer),
+                ),
+              ),
             ),
           ],
         ),

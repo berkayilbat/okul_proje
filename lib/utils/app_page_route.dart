@@ -154,3 +154,78 @@ class SmoothPageTransitionsBuilder extends PageTransitionsBuilder {
     );
   }
 }
+
+/// Hero geçişleri için özel yardımcı sınıf
+/// - Açılışta (push): Listeden detay sayfasına doğal yukarı kayma & büyüme
+/// - Kapanışta (pop): Başlığın aşağıya kayarak görsel çakışma yaratması engellenir;
+///   başlık bulunduğu yerde sayfanın fade out animasyonuyla birlikte erir.
+class AppHeroHelper {
+  /// Kapanışta (pop) Hero'nun aşağıya kaymasını önleyerek en üst konumda sabit tutar.
+  static RectTween fadeInPlaceRectTween(Rect? begin, Rect? end) {
+    return RectTween(begin: begin, end: begin);
+  }
+
+  /// Kapanışta (pop) Hero öğesini sayfanın fade out animasyonuyla birlikte eritir.
+  /// Açılışta (push) ise standart büyüme uçuşu çalışır.
+  static Widget flightShuttleBuilder(
+    BuildContext flightContext,
+    Animation<double> animation,
+    HeroFlightDirection flightDirection,
+    BuildContext fromHeroContext,
+    BuildContext toHeroContext,
+  ) {
+    if (flightDirection == HeroFlightDirection.pop) {
+      return FadeTransition(
+        opacity: animation,
+        child: fromHeroContext.widget,
+      );
+    }
+    return toHeroContext.widget;
+  }
+}
+
+/// Ana ekran sekmeleri (İlanlarım, Geçmiş İlanlarım, Profil vb.) arasında
+/// geçiş yönüne göre (ileri: sağdan, geri: soldan) yumuşak kayma ve fade animasyonu sağlar.
+class DirectionalTabSwitcher extends StatelessWidget {
+  final int currentIndex;
+  final int previousIndex;
+  final Widget child;
+  final Duration duration;
+
+  const DirectionalTabSwitcher({
+    super.key,
+    required this.currentIndex,
+    required this.previousIndex,
+    required this.child,
+    this.duration = const Duration(milliseconds: 280),
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isForward = currentIndex >= previousIndex;
+
+    return AnimatedSwitcher(
+      duration: duration,
+      transitionBuilder: (Widget childWidget, Animation<double> animation) {
+        final isCurrent = childWidget.key == ValueKey<int>(currentIndex);
+        final beginOffset = isCurrent
+            ? Offset(isForward ? 0.25 : -0.25, 0.0)
+            : Offset(isForward ? -0.25 : 0.25, 0.0);
+
+        final slideTween = Tween<Offset>(
+          begin: beginOffset,
+          end: Offset.zero,
+        ).chain(CurveTween(curve: Curves.easeOutCubic));
+
+        return SlideTransition(
+          position: animation.drive(slideTween),
+          child: FadeTransition(
+            opacity: animation,
+            child: childWidget,
+          ),
+        );
+      },
+      child: child,
+    );
+  }
+}

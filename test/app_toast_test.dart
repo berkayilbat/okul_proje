@@ -138,6 +138,37 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
       expect(find.text('Dokun ve Kapat'), findsNothing);
     });
+
+    testWidgets('auto-dismisses upward off-screen after duration', (WidgetTester tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () => AppToast.show(
+                  context: context,
+                  message: 'Otomatik Kapanma',
+                  variant: ToastVariant.info,
+                  duration: const Duration(milliseconds: 600),
+                ),
+                child: const Text('Show Auto'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Show Auto'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 350));
+      expect(find.text('Otomatik Kapanma'), findsOneWidget);
+
+      // Advance past duration to start reverse slide animation
+      await tester.pump(const Duration(milliseconds: 650));
+      // Advance to complete reverse exit animation
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text('Otomatik Kapanma'), findsNothing);
+    });
   });
 
   group('2.7 — AppBanner Material Banner Tests', () {

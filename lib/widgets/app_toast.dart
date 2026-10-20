@@ -9,7 +9,7 @@ enum ToastVariant { success, error, warning, info }
 /// dokunularak veya yukarı kaydırılarak anında kapatılabilen modern bildirim kapsülü.
 class AppToast {
   static OverlayEntry? _currentEntry;
-  static Timer? _dismissTimer;
+  static GlobalKey<_ToastWidgetState>? _currentKey;
 
   /// Başarı bildirimi (Zümrüt Yeşili, Onay Rozeti)
   static void showSuccess(
@@ -71,12 +71,21 @@ class AppToast {
     );
   }
 
-  /// Açık olan toast'ı hemen kapatır
-  static void dismiss() {
-    _dismissTimer?.cancel();
-    _dismissTimer = null;
+  /// Açık olan toast'ı kapatır (varsayılan olarak anında kapatır, animated: true ile yukarı kayarak çıkar)
+  static void dismiss({bool animated = false}) {
+    if (animated && _currentKey?.currentState != null) {
+      _currentKey?.currentState?.dismissAnimated();
+    } else {
+      _forceDismiss();
+    }
+  }
+
+  static void _forceDismiss() {
+    _currentKey = null;
     if (_currentEntry != null) {
-      _currentEntry?.remove();
+      try {
+        _currentEntry?.remove();
+      } catch (_) {}
       _currentEntry = null;
     }
   }
@@ -95,15 +104,19 @@ class AppToast {
       HapticFeedback.lightImpact();
     } catch (_) {}
 
-    // Önceki toast varsa temizle
-    dismiss();
+    // Önceki toast varsa anında temizle
+    _forceDismiss();
 
     final overlay = Overlay.maybeOf(context);
     if (overlay == null) return;
 
+    final key = GlobalKey<_ToastWidgetState>();
+    _currentKey = key;
+
     late OverlayEntry entry;
     entry = OverlayEntry(
       builder: (ctx) => _ToastWidget(
+        key: key,
         message: message,
         variant: variant,
         onRetry: onRetry,
@@ -111,7 +124,7 @@ class AppToast {
         duration: duration,
         onDismiss: () {
           if (_currentEntry == entry) {
-            dismiss();
+            _forceDismiss();
           }
         },
       ),
@@ -119,12 +132,6 @@ class AppToast {
 
     _currentEntry = entry;
     overlay.insert(entry);
-
-    _dismissTimer = Timer(duration, () {
-      if (_currentEntry == entry) {
-        dismiss();
-      }
-    });
   }
 }
 
@@ -137,6 +144,7 @@ class _ToastWidget extends StatefulWidget {
   final VoidCallback onDismiss;
 
   const _ToastWidget({
+    super.key,
     required this.message,
     required this.variant,
     this.onRetry,
@@ -151,40 +159,78 @@ class _ToastWidget extends StatefulWidget {
 
 class _ToastWidgetState extends State<_ToastWidget> with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
+  late final Animation<double> _curvedAnimation;
   late final Animation<Offset> _slideAnimation;
   late final Animation<double> _fadeAnimation;
+  Timer? _autoDismissTimer;
+  bool _isDismissing = false;
 
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 300),
-      reverseDuration: const Duration(milliseconds: 240),
+      duration: const Duration(milliseconds: 350),
+      reverseDuration: const Duration(milliseconds: 280),
     );
 
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, -0.6),
-      end: Offset.zero,
-    ).chain(CurveTween(curve: Curves.easeOutBack)).animate(_controller);
+    // Girişte yaylanarak inme, çıkışta yukarı doğru ivmelenerek kaybolma
+    _curvedAnimation = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeOutBack,
+      reverseCurve: Curves.easeInCubic,
+    );
 
-    _fadeAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).chain(CurveTween(curve: Curves.easeOut)).animate(_controller);
+    // Ekranın üstünden (-1.8) inip, kapanırken tekrar ekranın üstünden dışarı kayarak çıkış
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, -1.8),
+      end: Offset.zero,
+    ).animate(_curvedAnimation);
+
+    _fadeAnimation = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeOut,
+      reverseCurve: Curves.easeIn,
+    );
 
     _controller.forward();
+
+    // Süre dolduğunda doğrudan yok olmak yerine yukarı kayarak ekrandan çık
+    _autoDismissTimer = Timer(widget.duration, () {
+      if (mounted) {
+        _handleDismiss();
+      }
+    });
   }
 
   @override
   void dispose() {
+    _autoDismissTimer?.cancel();
     _controller.dispose();
     super.dispose();
   }
 
-  void _handleDismiss() async {
-    await _controller.reverse();
-    widget.onDismiss();
+  void dismissAnimated() {
+    _handleDismiss();
+  }
+
+  Future<void> _handleDismiss() async {
+    if (_isDismissing) return;
+    _isDismissing = true;
+    _autoDismissTimer?.cancel();
+
+    if (!mounted) {
+      widget.onDismiss();
+      return;
+    }
+
+    try {
+      await _controller.reverse();
+    } catch (_) {}
+
+    if (mounted) {
+      widget.onDismiss();
+    }
   }
 
   @override
@@ -233,7 +279,10 @@ class _ToastWidgetState extends State<_ToastWidget> with SingleTickerProviderSta
             child: Dismissible(
               key: const Key('app_toast_dismissible'),
               direction: DismissDirection.up,
-              onDismissed: (_) => widget.onDismiss(),
+              onDismissed: (_) {
+                _autoDismissTimer?.cancel();
+                widget.onDismiss();
+              },
               child: SlideTransition(
                 position: _slideAnimation,
                 child: FadeTransition(
@@ -312,16 +361,6 @@ class _ToastWidgetState extends State<_ToastWidget> with SingleTickerProviderSta
                               ),
                             ),
                           ],
-                          const SizedBox(width: 4),
-                          // Kapatma Çarpısı
-                          GestureDetector(
-                            onTap: _handleDismiss,
-                            child: Icon(
-                              Icons.close_rounded,
-                              size: 18,
-                              color: isDark ? Colors.white38 : Colors.black38,
-                            ),
-                          ),
                         ],
                       ),
                     ),

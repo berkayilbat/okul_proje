@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'auth_service.dart';
 import 'widgets/app_refresh_indicator.dart';
+import 'widgets/empty_state_view.dart';
 
 class EmployeeProfileScreen extends StatefulWidget {
   final String firstName;
@@ -140,68 +141,80 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
             
             const SizedBox(height: 40),
             
-            if (_recentJobs.isNotEmpty) ...[
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'Yorumlar ve Değerlendirmeler',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: primaryColor),
-                ),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Yorumlar ve Değerlendirmeler',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: primaryColor),
               ),
-              const SizedBox(height: 12),
-              ..._recentJobs.where((j) => (j['rating'] != null && j['rating'] > 0) || (j['comment'] != null && j['comment'].isNotEmpty)).map((job) {
-                return Container(
-                  width: double.infinity,
-                  margin: const EdgeInsets.only(bottom: 12),
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF16191E) : Colors.white,
-                    border: Border.all(color: isDark ? const Color(0xFF282F3A) : Colors.grey.shade200),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
+            ),
+            const SizedBox(height: 12),
+            Builder(
+              builder: (context) {
+                final ratedReviews = _recentJobs
+                    .where((j) => (j['rating'] != null && j['rating'] > 0) || (j['comment'] != null && j['comment'].isNotEmpty))
+                    .toList();
+
+                if (ratedReviews.isEmpty) {
+                  return EmptyStateView.noReviews(isCompact: true);
+                }
+
+                return Column(
+                  children: ratedReviews.map((job) {
+                    return Container(
+                      width: double.infinity,
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF16191E) : Colors.white,
+                        border: Border.all(color: isDark ? const Color(0xFF282F3A) : Colors.grey.shade200),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
-                            child: Text(
-                              job['title'].toString(),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  job['title'].toString(),
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold, 
+                                    fontSize: 15,
+                                    color: isDark ? const Color(0xFFF1F5F9) : Colors.black87,
+                                  ),
+                                ),
+                              ),
+                              if (job['rating'] != null && job['rating'] > 0)
+                                Row(
+                                  children: [
+                                    const Icon(Icons.star, color: Colors.amber, size: 16),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      job['rating'].toString(),
+                                      style: const TextStyle(fontWeight: FontWeight.bold),
+                                    ),
+                                  ],
+                                ),
+                            ],
+                          ),
+                          if (job['comment'] != null && job['comment'].toString().isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              '"${job['comment']}"',
                               style: TextStyle(
-                                fontWeight: FontWeight.bold, 
-                                fontSize: 15,
-                                color: isDark ? const Color(0xFFF1F5F9) : Colors.black87,
+                                fontStyle: FontStyle.italic, 
+                                color: isDark ? const Color(0xFFCBD5E1) : Colors.grey.shade700,
                               ),
                             ),
-                          ),
-                          if (job['rating'] != null && job['rating'] > 0)
-                            Row(
-                              children: [
-                                const Icon(Icons.star, color: Colors.amber, size: 16),
-                                const SizedBox(width: 4),
-                                Text(
-                                  job['rating'].toString(),
-                                  style: const TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                              ],
-                            ),
+                          ]
                         ],
                       ),
-                      if (job['comment'] != null && job['comment'].toString().isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        Text(
-                          '"${job['comment']}"',
-                          style: TextStyle(
-                            fontStyle: FontStyle.italic, 
-                            color: isDark ? const Color(0xFFCBD5E1) : Colors.grey.shade700,
-                          ),
-                        ),
-                      ]
-                    ],
-                  ),
+                    );
+                  }).toList(),
                 );
-              }).toList(),
-            ],
+              },
+            ),
           ],
         ),
       ),

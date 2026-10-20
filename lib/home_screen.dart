@@ -215,6 +215,13 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildCurrentTab(bool isEmployer) {
+    void handleClearFilters() {
+      setState(() {
+        _selectedJobFilters.clear();
+        _selectedLocationFilters.clear();
+      });
+    }
+
     if (isEmployer) {
       if (_selectedIndex == 0) {
         return JobsListScreen(
@@ -223,6 +230,7 @@ class _HomeScreenState extends State<HomeScreen> {
           isHistory: false,
           jobFilters: _selectedJobFilters,
           locationFilters: _selectedLocationFilters,
+          onClearFilters: handleClearFilters,
         );
       } else if (_selectedIndex == 1) {
         return JobsListScreen(
@@ -231,6 +239,7 @@ class _HomeScreenState extends State<HomeScreen> {
           isHistory: true,
           jobFilters: _selectedJobFilters,
           locationFilters: _selectedLocationFilters,
+          onClearFilters: handleClearFilters,
         );
       } else {
         return _buildProfileTab(isEmployer);
@@ -243,18 +252,21 @@ class _HomeScreenState extends State<HomeScreen> {
           isHistory: false,
           jobFilters: _selectedJobFilters,
           locationFilters: _selectedLocationFilters,
+          onClearFilters: handleClearFilters,
         );
       } else if (_selectedIndex == 1) {
         return ApplicationsScreen(
           key: ValueKey('apps_$_listUpdateKey'),
           isEmployer: false,
           isHistory: false,
+          onExploreJobs: () => _onItemTapped(0),
         );
       } else if (_selectedIndex == 2) {
         return ApplicationsScreen(
           key: ValueKey('apps_hist_$_listUpdateKey'),
           isEmployer: false,
           isHistory: true,
+          onExploreJobs: () => _onItemTapped(0),
         );
       } else {
         return _buildProfileTab(isEmployer);

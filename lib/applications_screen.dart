@@ -5,12 +5,20 @@ import 'qr_scan_screen.dart';
 import 'widgets/review_dialog.dart';
 import 'widgets/network_error_view.dart';
 import 'widgets/app_refresh_indicator.dart';
+import 'widgets/empty_state_view.dart';
+import 'widgets/shimmer_loading.dart';
 
 class ApplicationsScreen extends StatefulWidget {
   final bool isEmployer;
   final bool isHistory;
+  final VoidCallback? onExploreJobs;
 
-  const ApplicationsScreen({super.key, required this.isEmployer, this.isHistory = false});
+  const ApplicationsScreen({
+    super.key,
+    required this.isEmployer,
+    this.isHistory = false,
+    this.onExploreJobs,
+  });
 
   @override
   State<ApplicationsScreen> createState() => _ApplicationsScreenState();
@@ -92,7 +100,7 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator(color: Color(0xFF111827)));
+      return SkeletonListView.applications();
     }
 
     if (_hasNetworkError && _applications.isEmpty) {
@@ -112,24 +120,13 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
   }
 
   Widget _buildEmptyState() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return SingleChildScrollView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      child: Container(
-        height: MediaQuery.of(context).size.height * 0.5,
-        alignment: Alignment.center,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.assignment_outlined, size: 80, color: isDark ? const Color(0xFF64748B) : Colors.grey.shade400),
-            const SizedBox(height: 16),
-            Text(
-              widget.isHistory ? 'Geçmiş işleminiz bulunmuyor.' : 'Hiç başvuru yok.',
-              style: TextStyle(fontSize: 18, color: isDark ? const Color(0xFF94A3B8) : Colors.grey.shade600),
-            ),
-          ],
-        ),
-      ),
+    if (widget.isHistory) {
+      return EmptyStateView.noHistory(
+        message: 'Geçmişte tamamladığınız veya sonuçlanan bir iş başvurunuz bulunmuyor.',
+      );
+    }
+    return EmptyStateView.noApplications(
+      onExploreJobs: widget.onExploreJobs,
     );
   }
 

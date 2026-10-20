@@ -3,17 +3,28 @@ import 'job_service.dart';
 import 'employee_profile_screen.dart';
 import 'qr_generate_screen.dart';
 import 'qr_scan_screen.dart';
+import 'add_job_screen.dart';
 import 'widgets/review_dialog.dart';
 import 'widgets/network_error_view.dart';
 import 'widgets/app_refresh_indicator.dart';
+import 'widgets/empty_state_view.dart';
+import 'widgets/shimmer_loading.dart';
 
 class JobsListScreen extends StatefulWidget {
   final bool isEmployer;
   final bool isHistory;
   final Set<String> jobFilters;
   final Set<String> locationFilters;
+  final VoidCallback? onClearFilters;
   
-  const JobsListScreen({super.key, required this.isEmployer, this.isHistory = false, this.jobFilters = const {}, this.locationFilters = const {}});
+  const JobsListScreen({
+    super.key,
+    required this.isEmployer,
+    this.isHistory = false,
+    this.jobFilters = const {},
+    this.locationFilters = const {},
+    this.onClearFilters,
+  });
 
   @override
   State<JobsListScreen> createState() => _JobsListScreenState();
@@ -179,7 +190,7 @@ class _JobsListScreenState extends State<JobsListScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator(color: Color(0xFF111827)));
+      return SkeletonListView.jobs();
     }
 
     if (_hasNetworkError && _jobs.isEmpty) {
@@ -228,21 +239,43 @@ class _JobsListScreenState extends State<JobsListScreen> {
     );
   }
 
+  Future<void> _navigateToCreateJob() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const AddJobScreen()),
+    );
+    if (result == true) {
+      _fetchJobs();
+    }
+  }
+
   Widget _buildEmptyState() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      children: [
-        SizedBox(height: MediaQuery.of(context).size.height * 0.2),
-        Icon(Icons.work_off_outlined, size: 80, color: isDark ? const Color(0xFF64748B) : Colors.grey.shade400),
-        const SizedBox(height: 16),
-        Center(
-          child: Text(
-             widget.isEmployer ? 'İlan bulunamadı' : 'Şu an aktif açık ilan bulunmuyor',
-             style: TextStyle(fontSize: 18, color: isDark ? const Color(0xFF94A3B8) : Colors.grey.shade600),
-          ),
-        ),
-      ],
+    final bool hasActiveFilters = widget.jobFilters.isNotEmpty || widget.locationFilters.isNotEmpty;
+
+    if (widget.isEmployer) {
+      if (widget.isHistory) {
+        return EmptyStateView.noHistory(
+          message: 'Geçmişte kapanan veya tamamlanan bir ilanınız bulunmuyor.',
+        );
+      }
+      if (hasActiveFilters) {
+        return EmptyStateView.noMatchingJobs(
+          onClearFilters: widget.onClearFilters,
+        );
+      }
+      return EmptyStateView.noEmployerJobs(
+        onAddJob: _navigateToCreateJob,
+      );
+    }
+
+    if (hasActiveFilters) {
+      return EmptyStateView.noMatchingJobs(
+        onClearFilters: widget.onClearFilters,
+      );
+    }
+
+    return EmptyStateView.noJobs(
+      onRefresh: _fetchJobs,
     );
   }
 
@@ -549,6 +582,9 @@ class _JobsListScreenState extends State<JobsListScreen> {
     final jobApps = _applications.where((app) => app['job_id'].toString() == jobId).toList();
 
     if (jobApps.isEmpty) {
+      if (jobStatus == 'open') {
+        return EmptyStateView.noApplicants();
+      }
       return Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 12),
@@ -561,11 +597,9 @@ class _JobsListScreenState extends State<JobsListScreen> {
         ),
         alignment: Alignment.center,
         child: Text(
-          jobStatus == 'open' ? 'İlan Aktif (Henüz başvuru yok)' : 'İlan Kapalı',
+          'İlan Kapalı',
           style: TextStyle(
-            color: jobStatus == 'open'
-                ? (isDark ? const Color(0xFFF1F5F9) : Colors.black)
-                : (isDark ? const Color(0xFF94A3B8) : Colors.grey.shade700),
+            color: isDark ? const Color(0xFF94A3B8) : Colors.grey.shade700,
             fontWeight: FontWeight.bold,
           ),
         ),

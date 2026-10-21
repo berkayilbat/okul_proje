@@ -16,6 +16,7 @@ try {
           `tc_kimlik_no` varchar(11) DEFAULT NULL,
           `company_name` varchar(255) DEFAULT NULL,
           `tax_no` varchar(20) DEFAULT NULL,
+          `profile_image` varchar(255) DEFAULT NULL,
           `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
           `wallet_balance` decimal(10,2) NOT NULL DEFAULT 0.00,
           `average_rating` decimal(3,2) NOT NULL DEFAULT 5.00,
@@ -31,6 +32,9 @@ try {
 
     // Eksik sütun kontrolü (eğer users tablosu önceden varsa)
     $columns = $conn->query("SHOW COLUMNS FROM users")->fetchAll(PDO::FETCH_COLUMN);
+    if (!in_array('profile_image', $columns)) {
+        $conn->exec("ALTER TABLE users ADD COLUMN `profile_image` varchar(255) DEFAULT NULL AFTER `tax_no`");
+    }
     if (!in_array('average_rating', $columns)) {
         $conn->exec("ALTER TABLE users ADD COLUMN `average_rating` decimal(3,2) NOT NULL DEFAULT 5.00 AFTER `wallet_balance`");
     }
@@ -103,29 +107,29 @@ try {
     $userStmt = $conn->prepare("
         INSERT INTO users (
             id, role, first_name, last_name, phone, password, 
-            tc_kimlik_no, company_name, tax_no, wallet_balance, average_rating, 
+            tc_kimlik_no, company_name, tax_no, profile_image, wallet_balance, average_rating, 
             birth_date, address, professions, certificates_json, past_workplaces_json, is_profile_complete
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ");
 
     // İşveren (Berkay / Gig Jet Organizasyon)
     $userStmt->execute([
         1, 'Employer', 'Berkay', 'Yılbat', '05445073525', $hashedPassword,
-        '', 'Gig Jet Organizasyon', '12067217062', 15000.00, 4.90,
+        '', 'Gig Jet Organizasyon', '12067217062', NULL, 15000.00, 4.90,
         '1995-05-15', 'Çankaya, Ankara', NULL, NULL, NULL, 1
     ]);
 
     // Çalışan (Berat Taştekin)
     $userStmt->execute([
         2, 'Employee', 'Berat', 'Taştekin', '05438296484', $hashedPassword,
-        '12463228334', '', NULL, 3500.00, 4.85,
+        '12463228334', '', NULL, NULL, 3500.00, 4.85,
         '2000-04-02', 'Mamak, Ankara', 'Garson, Barmen, Karşılama Görevlisi', '[]', '[]', 1
     ]);
 
     // İkinci Çalışan (Caner Yıldız)
     $userStmt->execute([
         3, 'Employee', 'Caner', 'Yıldız', '05551112233', $hashedPassword,
-        '98765432101', '', NULL, 1200.00, 4.70,
+        '98765432101', '', NULL, NULL, 1200.00, 4.70,
         '1998-09-20', 'Yenimahalle, Ankara', 'Vale, Aşçı Yardımcısı, Kurye', '[]', '[]', 1
     ]);
 

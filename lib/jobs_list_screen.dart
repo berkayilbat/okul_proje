@@ -14,6 +14,7 @@ import 'widgets/network_error_view.dart';
 import 'widgets/app_refresh_indicator.dart';
 import 'widgets/empty_state_view.dart';
 import 'widgets/shimmer_loading.dart';
+import 'widgets/app_avatar.dart';
 
 class JobsListScreen extends StatefulWidget {
   final bool isEmployer;
@@ -814,6 +815,7 @@ class _JobsListScreenState extends State<JobsListScreen> {
                                 firstName: app['first_name'].toString(),
                                 lastName: app['last_name'].toString(),
                                 phone: app['employee_phone'].toString(),
+                                avatarUrl: (app['employee_avatar'] ?? app['profile_image'])?.toString(),
                               ),
                             ),
                           );
@@ -823,23 +825,11 @@ class _JobsListScreenState extends State<JobsListScreen> {
                           padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
                           child: Row(
                             children: [
-                              Hero(
-                                tag: 'employee-avatar-${app['employee_phone']}',
-                                createRectTween: AppHeroHelper.fadeInPlaceRectTween,
-                                flightShuttleBuilder: AppHeroHelper.flightShuttleBuilder,
-                                placeholderBuilder: (context, heroSize, child) => child,
-                                child: CircleAvatar(
-                                  radius: 12,
-                                  backgroundColor: isDark ? const Color(0xFF1E232B) : const Color(0xFF111827).withOpacity(0.1),
-                                  child: Text(
-                                    '${app['first_name']?.toString().isNotEmpty == true ? app['first_name'].toString()[0] : ''}${app['last_name']?.toString().isNotEmpty == true ? app['last_name'].toString()[0] : ''}'.toUpperCase(),
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                      color: primaryColor,
-                                    ),
-                                  ),
-                                ),
+                              AppAvatar(
+                                radius: 12,
+                                imageUrl: (app['employee_avatar'] ?? app['profile_image'])?.toString(),
+                                name: '${app['first_name']} ${app['last_name']}',
+                                heroTag: 'employee-avatar-${app['employee_phone']}',
                               ),
                               const SizedBox(width: 8),
                               Expanded(

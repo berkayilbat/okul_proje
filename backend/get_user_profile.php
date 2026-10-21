@@ -21,12 +21,13 @@ if (empty($phone)) {
 }
 
 try {
-    $stmt = $conn->prepare("SELECT wallet_balance, average_rating, first_name, last_name, company_name FROM users WHERE phone = ?");
+    $stmt = $conn->prepare("SELECT wallet_balance, average_rating, first_name, last_name, company_name, profile_image FROM users WHERE phone = ?");
     $stmt->execute([$phone]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
     $wallet_balance = $user ? floatval($user['wallet_balance'] ?? 0.0) : 0.0;
     $average_rating = $user ? floatval($user['average_rating'] ?? 5.0) : 5.0;
+    $profile_image = $user ? ($user['profile_image'] ?? null) : null;
 
     $job_count = 0;
     $recent_jobs = [];
@@ -104,7 +105,8 @@ try {
             "job_count" => $job_count,
             "average_rating" => $average_rating,
             "last_payment" => $last_payment,
-            "recent_jobs" => $recent_jobs
+            "recent_jobs" => $recent_jobs,
+            "profile_image" => $profile_image
         ]
     ]);
 } catch (Exception $e) {

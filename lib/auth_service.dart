@@ -13,6 +13,7 @@ class AuthService {
   static const String _keyLastName = 'last_name';
   static const String _keyCompanyName = 'company_name';
   static const String _keyTcKimlikNo = 'tc_kimlik_no';
+  static const String _keyProfileImage = 'profile_image';
 
   static String get _baseUrl => ServerConfig.baseUrl;
 
@@ -37,7 +38,18 @@ class AuthService {
       'tc_kimlik_no': prefs.getString(_keyTcKimlikNo),
       'role': prefs.getString(_keyRole),
       'phone': prefs.getString(_keyPhone),
+      'profile_image': prefs.getString(_keyProfileImage),
     };
+  }
+
+  static String? getFullImageUrl(String? path) {
+    if (path == null || path.trim().isEmpty) return null;
+    final trimmed = path.trim();
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return trimmed;
+    }
+    final cleanPath = trimmed.startsWith('/') ? trimmed.substring(1) : trimmed;
+    return '$_baseUrl/$cleanPath';
   }
 
   static Future<Map<String, dynamic>> login(
@@ -96,6 +108,14 @@ class AuthService {
               _keyTcKimlikNo,
               userMap['tc_kimlik_no'].toString(),
             );
+          }
+          if (userMap['profile_image'] != null && userMap['profile_image'].toString().isNotEmpty) {
+            await prefs.setString(
+              _keyProfileImage,
+              userMap['profile_image'].toString(),
+            );
+          } else {
+            await prefs.remove(_keyProfileImage);
           }
             
           int isComplete = 0;
@@ -372,6 +392,60 @@ class AuthService {
     }
   }
 
+  static Future<Map<String, dynamic>> uploadAvatar({
+    required String phone,
+    required String filePath,
+  }) async {
+    try {
+      final uri = Uri.parse('$_baseUrl/upload_avatar.php');
+      final request = http.MultipartRequest('POST', uri);
+      request.fields['phone'] = phone;
+      request.files.add(await http.MultipartFile.fromPath('avatar', filePath));
+
+      final streamedResponse = await request.send().timeout(const Duration(seconds: 20));
+      final response = await http.Response.fromStream(streamedResponse);
+
+      final parsed = NetworkHelper.parseResponse(response);
+      if (parsed['status'] == 'success') {
+        final prefs = await SharedPreferences.getInstance();
+        final imagePath = parsed['profile_image']?.toString();
+        if (imagePath != null && imagePath.isNotEmpty) {
+          await prefs.setString(_keyProfileImage, imagePath);
+        }
+      }
+      return parsed;
+    } catch (e) {
+      return {
+        'status': 'error',
+        'is_network_error': NetworkHelper.isNetworkException(e),
+        'message': NetworkHelper.getFriendlyErrorMessage(e),
+      };
+    }
+  }
+
+  static Future<Map<String, dynamic>> deleteAvatar({required String phone}) async {
+    try {
+      final response = await NetworkHelper.postWithRetry(
+        Uri.parse('$_baseUrl/upload_avatar.php'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'phone': phone, 'action': 'delete'}),
+      );
+
+      final parsed = NetworkHelper.parseResponse(response);
+      if (parsed['status'] == 'success') {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove(_keyProfileImage);
+      }
+      return parsed;
+    } catch (e) {
+      return {
+        'status': 'error',
+        'is_network_error': NetworkHelper.isNetworkException(e),
+        'message': NetworkHelper.getFriendlyErrorMessage(e),
+      };
+    }
+  }
+
   static Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_keyRememberMe);
@@ -381,6 +455,7 @@ class AuthService {
     await prefs.remove(_keyLastName);
     await prefs.remove(_keyCompanyName);
     await prefs.remove(_keyTcKimlikNo);
+    await prefs.remove(_keyProfileImage);
     await prefs.remove('is_profile_complete');
   }
 }

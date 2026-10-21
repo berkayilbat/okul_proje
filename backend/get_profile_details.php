@@ -19,7 +19,7 @@ if (empty($phone)) {
 }
 
 try {
-    $stmt = $conn->prepare("SELECT first_name, last_name, phone, address, professions, tax_no, company_name, tc_kimlik_no FROM users WHERE phone = ?");
+    $stmt = $conn->prepare("SELECT first_name, last_name, phone, address, professions, tax_no, company_name, tc_kimlik_no, profile_image FROM users WHERE phone = ?");
     $stmt->execute([$phone]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
 

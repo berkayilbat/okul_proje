@@ -36,7 +36,8 @@ try {
                 j.employer_phone,
                 emp.first_name as employer_first_name,
                 emp.last_name as employer_last_name,
-                emp.company_name
+                emp.company_name,
+                emp.profile_image as employer_avatar
             FROM job_applications ja 
             JOIN jobs j ON ja.job_id = j.id 
             LEFT JOIN users emp ON j.employer_phone = emp.phone
@@ -70,7 +71,8 @@ try {
                 u.first_name, 
                 u.last_name, 
                 u.phone as employee_phone,
-                u.average_rating as employee_average_rating
+                u.average_rating as employee_average_rating,
+                u.profile_image as employee_avatar
             FROM job_applications ja
             JOIN jobs j ON ja.job_id = j.id
             JOIN users u ON ja.employee_phone = u.phone

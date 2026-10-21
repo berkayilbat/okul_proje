@@ -3,17 +3,20 @@ import 'package:flutter/material.dart';
 import 'auth_service.dart';
 import 'widgets/app_refresh_indicator.dart';
 import 'widgets/empty_state_view.dart';
+import 'widgets/app_avatar.dart';
 
 class EmployeeProfileScreen extends StatefulWidget {
   final String firstName;
   final String lastName;
   final String phone;
+  final String? avatarUrl;
 
   const EmployeeProfileScreen({
     super.key,
     required this.firstName,
     required this.lastName,
     required this.phone,
+    this.avatarUrl,
   });
 
   @override
@@ -25,10 +28,12 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
   double _averageRating = 0.0;
   int _jobCount = 0;
   List<dynamic> _recentJobs = [];
+  String? _profileImage;
 
   @override
   void initState() {
     super.initState();
+    _profileImage = widget.avatarUrl;
     _fetchProfileData();
   }
 
@@ -46,6 +51,9 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
         if (stats['recent_jobs'] != null && stats['recent_jobs'] is List) {
            _recentJobs = stats['recent_jobs'];
         }
+        if (stats['profile_image'] != null && stats['profile_image'].toString().isNotEmpty) {
+           _profileImage = stats['profile_image'].toString();
+        }
         _isLoading = false;
       });
     }
@@ -53,7 +61,6 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final initials = '${widget.firstName.isNotEmpty ? widget.firstName[0] : ''}${widget.lastName.isNotEmpty ? widget.lastName[0] : ''}'.toUpperCase();
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final primaryColor = isDark ? const Color(0xFF3B82F6) : const Color(0xFF111827);
 
@@ -72,21 +79,11 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
           children: [
             const SizedBox(height: 20),
             Center(
-              child: Hero(
-                tag: 'employee-avatar-${widget.phone}',
-                flightShuttleBuilder: AppHeroHelper.flightShuttleBuilder,
-                child: CircleAvatar(
-                  radius: 60,
-                  backgroundColor: isDark ? const Color(0xFF1E232B) : const Color(0xFF111827).withOpacity(0.1),
-                  child: Text(
-                    initials,
-                    style: TextStyle(
-                      fontSize: 40,
-                      fontWeight: FontWeight.bold,
-                      color: primaryColor,
-                    ),
-                  ),
-                ),
+              child: AppAvatar(
+                radius: 60,
+                imageUrl: _profileImage,
+                name: '${widget.firstName} ${widget.lastName}',
+                heroTag: 'employee-avatar-${widget.phone}',
               ),
             ),
             const SizedBox(height: 20),

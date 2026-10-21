@@ -10,6 +10,9 @@ import 'applications_screen.dart';
 import 'edit_profile_screen.dart';
 import 'widgets/animated_theme_toggle.dart';
 import 'widgets/app_refresh_indicator.dart';
+import 'widgets/app_avatar.dart';
+import 'widgets/avatar_picker_sheet.dart';
+import 'widgets/app_toast.dart';
 import 'theme/app_theme.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -42,6 +45,8 @@ class _HomeScreenState extends State<HomeScreen> {
   double _lastJobRating = 0.0;
   
   String _userPhone = "";
+  String? _profileImage;
+  bool _isAvatarUploading = false;
 
   @override
   void initState() {
@@ -56,6 +61,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _firstName = userData['first_name'] ?? "Bilinmeyen";
         _lastName = userData['last_name'] ?? "Kullanıcı";
         _companyName = userData['company_name'] ?? "";
+        _profileImage = userData['profile_image'];
       });
     }
 
@@ -67,6 +73,9 @@ class _HomeScreenState extends State<HomeScreen> {
       if (mounted) {
         setState(() {
           _jobCount = stats['job_count'] ?? 0;
+          if (stats['profile_image'] != null && stats['profile_image'].toString().isNotEmpty) {
+            _profileImage = stats['profile_image'].toString();
+          }
           
           final wallet = stats['wallet_balance'];
           if (wallet is int) {
@@ -101,6 +110,49 @@ class _HomeScreenState extends State<HomeScreen> {
              _lastPaymentText = stats['last_payment'].toString();
           }
         });
+      }
+    }
+  }
+
+  Future<void> _handleAvatarChange() async {
+    final result = await AvatarPickerSheet.show(
+      context,
+      hasExistingImage: _profileImage != null && _profileImage!.isNotEmpty,
+    );
+    if (!mounted || result == null) return;
+
+    if (result.action == AvatarPickerAction.delete) {
+      setState(() => _isAvatarUploading = true);
+      final res = await AuthService.deleteAvatar(phone: _userPhone);
+      if (!mounted) return;
+      setState(() {
+        _isAvatarUploading = false;
+        if (res['status'] == 'success') {
+          _profileImage = null;
+        }
+      });
+      if (res['status'] == 'success') {
+        AppToast.showSuccess(context, 'Profil fotoğrafı kaldırıldı.');
+      } else {
+        AppToast.showError(context, res['message'] ?? 'Fotoğraf kaldırılamadı.');
+      }
+    } else if (result.filePath != null) {
+      setState(() => _isAvatarUploading = true);
+      final res = await AuthService.uploadAvatar(
+        phone: _userPhone,
+        filePath: result.filePath!,
+      );
+      if (!mounted) return;
+      setState(() {
+        _isAvatarUploading = false;
+        if (res['status'] == 'success') {
+          _profileImage = res['profile_image']?.toString();
+        }
+      });
+      if (res['status'] == 'success') {
+        AppToast.showSuccess(context, 'Profil fotoğrafınız güncellendi.');
+      } else {
+        AppToast.showError(context, res['message'] ?? 'Yükleme başarısız oldu.');
       }
     }
   }
@@ -447,16 +499,15 @@ class _HomeScreenState extends State<HomeScreen> {
                           const SizedBox(height: 16),
                           Row(
                             children: [
-                              CircleAvatar(
+                              AppAvatar(
                                 radius: 44,
-                                backgroundColor: Theme.of(
-                                  context,
-                                ).colorScheme.primary.withOpacity(0.1),
-                                child: Icon(
-                                  Icons.person,
-                                  size: 48,
-                                  color: Theme.of(context).colorScheme.primary,
-                                ),
+                                imageUrl: _profileImage,
+                                name: '$_firstName $_lastName',
+                                heroTag: 'user-profile-avatar',
+                                showEditBadge: true,
+                                isLoading: _isAvatarUploading,
+                                onEditBadgeTap: _handleAvatarChange,
+                                onTap: _handleAvatarChange,
                               ),
                               const SizedBox(width: 20),
                               Expanded(

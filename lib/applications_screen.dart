@@ -9,6 +9,7 @@ import 'widgets/network_error_view.dart';
 import 'widgets/app_refresh_indicator.dart';
 import 'widgets/empty_state_view.dart';
 import 'widgets/shimmer_loading.dart';
+import 'widgets/app_avatar.dart';
 
 class ApplicationsScreen extends StatefulWidget {
   final bool isEmployer;
@@ -234,8 +235,14 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
             if (widget.isEmployer)
               Row(
                 children: [
-                   Icon(Icons.person, size: 16, color: textSecondary),
-                   const SizedBox(width: 4),
+                   AppAvatar(
+                     radius: 12,
+                     imageUrl: (app['employee_avatar'] ?? app['profile_image'])?.toString(),
+                     name: '${app['first_name']} ${app['last_name']}',
+                     foregroundColor: primaryColor,
+                     backgroundColor: textSecondary.withOpacity(0.12),
+                   ),
+                   const SizedBox(width: 8),
                    Text(
                      'Başvuran: ${app['first_name']} ${app['last_name']}',
                      style: TextStyle(color: textBody, fontSize: 16, fontWeight: FontWeight.w500),

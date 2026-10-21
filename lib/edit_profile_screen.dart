@@ -4,8 +4,11 @@ import 'auth_service.dart';
 import 'validators.dart';
 import 'widgets/phone_input_formatter.dart';
 import 'widgets/app_snackbar.dart';
+import 'widgets/app_toast.dart';
 import 'widgets/network_error_view.dart';
 import 'widgets/app_refresh_indicator.dart';
+import 'widgets/app_avatar.dart';
+import 'widgets/avatar_picker_sheet.dart';
 import 'package:flutter/services.dart';
 import 'theme/app_theme.dart';
 
@@ -32,6 +35,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   bool _isSaving = false;
   bool _hasLoadError = false;
   String? _errorMessage;
+  String? _profileImage;
+  bool _isAvatarUploading = false;
 
   final List<String> _availableProfessions = List.from(AppConstants.availableProfessions);
 
@@ -95,6 +100,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       _firstNameController.text = details['first_name']?.toString() ?? '';
       _lastNameController.text = details['last_name']?.toString() ?? '';
       _taxNoController.text = details['tax_no']?.toString() ?? '';
+      _profileImage = details['profile_image']?.toString();
       
       final profs = details['professions']?.toString() ?? '';
       if (profs.isNotEmpty) {
@@ -113,6 +119,49 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       _hasLoadError = false;
       _isLoading = false;
     });
+  }
+
+  Future<void> _handleAvatarChange() async {
+    final result = await AvatarPickerSheet.show(
+      context,
+      hasExistingImage: _profileImage != null && _profileImage!.isNotEmpty,
+    );
+    if (!mounted || result == null) return;
+
+    if (result.action == AvatarPickerAction.delete) {
+      setState(() => _isAvatarUploading = true);
+      final res = await AuthService.deleteAvatar(phone: widget.userPhone);
+      if (!mounted) return;
+      setState(() {
+        _isAvatarUploading = false;
+        if (res['status'] == 'success') {
+          _profileImage = null;
+        }
+      });
+      if (res['status'] == 'success') {
+        AppToast.showSuccess(context, 'Profil fotoğrafı başarıyla kaldırıldı.');
+      } else {
+        AppToast.showError(context, res['message'] ?? 'Fotoğraf kaldırılamadı.');
+      }
+    } else if (result.filePath != null) {
+      setState(() => _isAvatarUploading = true);
+      final res = await AuthService.uploadAvatar(
+        phone: widget.userPhone,
+        filePath: result.filePath!,
+      );
+      if (!mounted) return;
+      setState(() {
+        _isAvatarUploading = false;
+        if (res['status'] == 'success') {
+          _profileImage = res['profile_image']?.toString();
+        }
+      });
+      if (res['status'] == 'success') {
+        AppToast.showSuccess(context, 'Profil fotoğrafınız güncellendi.');
+      } else {
+        AppToast.showError(context, res['message'] ?? 'Yükleme başarısız oldu.');
+      }
+    }
   }
 
   Future<void> _saveProfile() async {
@@ -195,6 +244,34 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        Center(
+                          child: Column(
+                            children: [
+                              AppAvatar(
+                                radius: 52,
+                                imageUrl: _profileImage,
+                                name: '${_firstNameController.text} ${_lastNameController.text}',
+                                heroTag: 'user-profile-avatar',
+                                showEditBadge: true,
+                                isLoading: _isAvatarUploading,
+                                onEditBadgeTap: _handleAvatarChange,
+                                onTap: _handleAvatarChange,
+                              ),
+                              const SizedBox(height: 8),
+                              TextButton.icon(
+                                onPressed: _isAvatarUploading ? null : _handleAvatarChange,
+                                icon: const Icon(Icons.photo_camera_outlined, size: 18),
+                                label: Text(
+                                  _profileImage != null && _profileImage!.isNotEmpty
+                                      ? 'Fotoğrafı Değiştir'
+                                      : 'Profil Fotoğrafı Ekle',
+                                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                            ],
+                          ),
+                        ),
                         Text('Kişisel Bilgiler', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: primaryColor)),
                         const SizedBox(height: 16),
                         Row(

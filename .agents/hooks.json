@@ -1,0 +1,11 @@
+{
+  "git-sync-reminder": {
+    "PreInvocation": [
+      {
+        "type": "command",
+        "command": "python3 ./scripts/check_git_sync.py",
+        "timeout": 10
+      }
+    ]
+  }
+}

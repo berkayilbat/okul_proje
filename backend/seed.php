@@ -53,11 +53,18 @@ try {
           `wage` decimal(10,2) NOT NULL,
           `description` text NOT NULL,
           `dates` varchar(100) NOT NULL,
+          `worker_count` int(11) NOT NULL DEFAULT 1,
           `status` varchar(50) NOT NULL DEFAULT 'open',
           `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
           PRIMARY KEY (`id`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     ");
+
+    // Eksik sütun kontrolü (jobs için)
+    $jobCols = $conn->query("SHOW COLUMNS FROM jobs")->fetchAll(PDO::FETCH_COLUMN);
+    if (!in_array('worker_count', $jobCols)) {
+        $conn->exec("ALTER TABLE jobs ADD COLUMN `worker_count` int(11) NOT NULL DEFAULT 1 AFTER `dates`");
+    }
 
     // 3. job_applications tablosunu oluştur
     $conn->exec("
@@ -135,35 +142,35 @@ try {
 
     // 5. DEMO İLANLARINI EKLE
     $jobStmt = $conn->prepare("
-        INSERT INTO jobs (id, employer_phone, title, location, working_hours, wage, description, dates, status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO jobs (id, employer_phone, title, location, working_hours, wage, description, dates, worker_count, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ");
 
     $jobsData = [
         [
             1, '05445073525', 'Konser Organizasyonu Garson', 'Çankaya / Tunalı Hilmi', '17:00 - 23:00', 850.00,
             'Büyük canlı müzik konserimizde VIP ve loca alanlarında servis yapacak, diksiyonu düzgün ve dinamik garsonlar aranmaktadır. Servis ve yemek dahildir.',
-            '18 Ekim 2026', 'open'
+            '18 Ekim 2026', 3, 'open'
         ],
         [
             2, '05445073525', 'Özel Davet Vale Görevlisi', 'Yenimahalle / Batıkent', '18:00 - 01:00', 1200.00,
             'Düğün ve özel balo organizasyonumuzda misafir araçlarının güvenli karşılanması, yönlendirilmesi ve park hizmeti verilmesi için B sınıfı ehliyetli çalışma arkadaşı aranıyor.',
-            '19 Ekim 2026', 'open'
+            '19 Ekim 2026', 2, 'open'
         ],
         [
             3, '05445073525', 'Fuar Tanıtım & Stand Hostu', 'Altındağ / ATO Congresium', '10:00 - 18:00', 950.00,
             'Uluslararası bilişim ve girişimcilik fuarında şirket standımızda ziyaretçilere broşür dağıtımı, karşılama ve kayıt desteği sunacak ekip arkadaşı.',
-            '20 Ekim 2026', 'open'
+            '20 Ekim 2026', 4, 'open'
         ],
         [
             4, '05445073525', 'Cafe & Bistro Barista / Servis', 'Kızılay / Meşrutiyet Cad.', '12:00 - 20:00', 750.00,
             'Yoğun öğle ve akşam saatlerinde sıcak/soğuk içecek servisi ve masa düzeninden sorumlu olacak tecrübeli veya öğrenmeye açık personel.',
-            '21 Ekim 2026', 'open'
+            '21 Ekim 2026', 1, 'open'
         ],
         [
             5, '05445073525', 'Hafta Sonu Etkinlik Destek Personeli', 'Gölbaşı / Mogan Park', '09:00 - 17:00', 1100.00,
             'Açık hava kurumsal piknik organizasyonunda lojistik taşıma, masa yerleşimi ve katılımcı yönlendirmesi desteği.',
-            '12 Ekim 2026', 'closed' // Geçmiş tamamlanmış iş örneği
+            '12 Ekim 2026', 2, 'closed' // Geçmiş tamamlanmış iş örneği
         ]
     ];
 

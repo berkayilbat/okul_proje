@@ -14,6 +14,7 @@ class JobService {
     required String wage,
     required String description,
     required String dates,
+    int workerCount = 1,
   }) async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -30,6 +31,7 @@ class JobService {
           'wage': wage,
           'description': description,
           'dates': dates,
+          'worker_count': workerCount,
         }),
       );
 
@@ -52,6 +54,7 @@ class JobService {
     required String wage,
     required String description,
     required String dates,
+    int workerCount = 1,
   }) async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -69,6 +72,7 @@ class JobService {
           'wage': wage,
           'description': description,
           'dates': dates,
+          'worker_count': workerCount,
         }),
       );
 

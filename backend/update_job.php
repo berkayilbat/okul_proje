@@ -24,6 +24,7 @@ $working_hours = isset($data->working_hours) ? sanitize_text($data->working_hour
 $wage = sanitize_float($data->wage, 0.0, 0.0);
 $description = isset($data->description) ? sanitize_text($data->description, 2000) : '';
 $dates = sanitize_text($data->dates, 100);
+$worker_count = isset($data->worker_count) ? max(1, min(100, (int)$data->worker_count)) : null;
 
 if ($job_id <= 0) {
     echo json_encode(["status" => "error", "message" => "Geçersiz ilan ID."]);
@@ -47,7 +48,7 @@ if ($wage <= 0) {
 
 try {
     // İlanın varlığını ve işverene ait olduğunu doğrula
-    $checkStmt = $conn->prepare("SELECT id, employer_phone, status FROM jobs WHERE id = ?");
+    $checkStmt = $conn->prepare("SELECT id, employer_phone, status, worker_count FROM jobs WHERE id = ?");
     $checkStmt->execute([$job_id]);
     $existingJob = $checkStmt->fetch(PDO::FETCH_ASSOC);
 
@@ -66,6 +67,17 @@ try {
         exit();
     }
 
+    // Eğer yeni worker_count belirtilmişse, onaylanmış çalışan sayısından az olamaz
+    if ($worker_count !== null) {
+        $countStmt = $conn->prepare("SELECT COUNT(*) FROM job_applications WHERE job_id = ? AND status IN ('accepted', 'in_progress', 'completed')");
+        $countStmt->execute([$job_id]);
+        $activeCount = (int)$countStmt->fetchColumn();
+        if ($worker_count < $activeCount) {
+            echo json_encode(["status" => "error", "message" => "Kontenjan, halihazırda onaylanmış çalışan sayısından ($activeCount) az olamaz."]);
+            exit();
+        }
+    }
+
     $stmt = $conn->prepare("
         UPDATE jobs 
         SET title = ?, 
@@ -73,10 +85,11 @@ try {
             working_hours = ?, 
             wage = ?, 
             description = ?, 
-            dates = ? 
+            dates = ?,
+            worker_count = COALESCE(?, worker_count)
         WHERE id = ? AND employer_phone = ?
     ");
-    $stmt->execute([$title, $location, $working_hours, $wage, $description, $dates, $job_id, $employer_phone]);
+    $stmt->execute([$title, $location, $working_hours, $wage, $description, $dates, $worker_count, $job_id, $employer_phone]);
 
     echo json_encode(["status" => "success", "message" => "İlan başarıyla güncellendi."]);
 } catch (Exception $e) {

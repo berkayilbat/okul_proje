@@ -24,6 +24,31 @@ if ($job_id <= 0 || empty($employee_phone)) {
     exit();
 }
 
+// İlanın durumunu ve kontenjanını kontrol et
+$jobStmt = $conn->prepare("SELECT status, worker_count FROM jobs WHERE id = ?");
+$jobStmt->execute([$job_id]);
+$job = $jobStmt->fetch(PDO::FETCH_ASSOC);
+
+if (!$job) {
+    echo json_encode(["status" => "error", "message" => "İlan bulunamadı."]);
+    exit();
+}
+
+if ($job['status'] !== 'open') {
+    echo json_encode(["status" => "error", "message" => "Bu ilan başvuruya kapalıdır."]);
+    exit();
+}
+
+$workerCount = (int)($job['worker_count'] ?? 1);
+$countStmt = $conn->prepare("SELECT COUNT(*) FROM job_applications WHERE job_id = ? AND status IN ('accepted', 'in_progress', 'completed')");
+$countStmt->execute([$job_id]);
+$filledCount = (int)$countStmt->fetchColumn();
+
+if ($filledCount >= $workerCount) {
+    echo json_encode(["status" => "error", "message" => "Bu ilan için belirlenen kontenjan dolmuştur."]);
+    exit();
+}
+
 // Check if already applied
 $checkStmt = $conn->prepare("SELECT id FROM job_applications WHERE job_id = ? AND employee_phone = ?");
 $checkStmt->execute([$job_id, $employee_phone]);

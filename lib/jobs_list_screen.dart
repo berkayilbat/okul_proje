@@ -296,16 +296,6 @@ class _JobsListScreenState extends State<JobsListScreen> {
     }
   }
 
-  void _openEditJob(dynamic job) async {
-    final updated = await Navigator.push(
-      context,
-      AppPageRoute.slideUp(AddJobScreen(jobToEdit: job)),
-    );
-    if (updated == true && mounted) {
-      _fetchJobs();
-    }
-  }
-
   Widget _buildJobsList(List<dynamic> targetJobs) {
     return ListView.builder(
       padding: const EdgeInsets.all(16),
@@ -357,54 +347,6 @@ class _JobsListScreenState extends State<JobsListScreen> {
     );
   }
 
-  void _showDeleteJobDialog(dynamic job) {
-    showDialog(
-      context: context,
-      builder: (BuildContext dialogContext) => AlertDialog(
-        title: const Text('İlanı Sil'),
-        content: const Text('Bu ilanı silmek istediğinize emin misiniz?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('İptal'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red.shade50,
-              foregroundColor: Colors.red,
-            ),
-            onPressed: () async {
-              Navigator.pop(dialogContext); // Dialog'u kapat
-              
-              // Yükleme göster
-              showDialog(
-                context: context,
-                barrierDismissible: false,
-                builder: (_) => const Center(child: CircularProgressIndicator()),
-              );
-              
-              final result = await JobService.deleteJob(job['id'].toString());
-              
-              if (!mounted) return;
-              Navigator.pop(context); // Loading'i kapat
-              
-              if (result['status'] == 'success') {
-                AppToast.showSuccess(context, result['message'] ?? 'İlan başarıyla silindi');
-              } else {
-                AppToast.showError(context, result['message'] ?? 'İlan silinemedi');
-              }
-              
-              if (result['status'] == 'success') {
-                _fetchJobs();
-              }
-            },
-            child: const Text('Sil'),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildJobCard(dynamic job) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cardBg = isDark ? const Color(0xFF16191E) : Colors.white;
@@ -412,6 +354,13 @@ class _JobsListScreenState extends State<JobsListScreen> {
     final primaryColor = isDark ? const Color(0xFF60A5FA) : const Color(0xFF111827);
     final textSecondary = isDark ? const Color(0xFF94A3B8) : Colors.grey.shade600;
     final textBody = isDark ? const Color(0xFFE2E8F0) : Colors.grey.shade800;
+
+    final workerCount = int.tryParse(job['worker_count']?.toString() ?? '1') ?? 1;
+    final jobApps = _applications.where((app) => app['job_id'].toString() == job['id'].toString()).toList();
+    final localAcceptedCount = jobApps.where((app) => ['accepted', 'in_progress', 'completed'].contains(app['app_status'])).length;
+    final backendAcceptedCount = int.tryParse(job['accepted_count']?.toString() ?? '0') ?? 0;
+    final acceptedCount = localAcceptedCount > 0 ? localAcceptedCount : backendAcceptedCount;
+    final isQuotaFull = acceptedCount >= workerCount;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -562,24 +511,6 @@ class _JobsListScreenState extends State<JobsListScreen> {
                         ),
                       ),
                     ),
-                    if (widget.isEmployer && job['status'] == 'open') ...[
-                      const SizedBox(width: 4),
-                      IconButton(
-                        icon: Icon(Icons.edit_outlined, color: isDark ? Colors.white70 : Colors.black54, size: 20),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        tooltip: 'İlanı Düzenle',
-                        onPressed: () => _openEditJob(job),
-                      ),
-                      const SizedBox(width: 6),
-                      IconButton(
-                        icon: Icon(Icons.delete_outline, color: isDark ? Colors.white70 : Colors.black54, size: 20),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        tooltip: 'İlanı Sil',
-                        onPressed: () => _showDeleteJobDialog(job),
-                      ),
-                    ],
                   ],
                 ),
                 const SizedBox(height: 14),
@@ -603,6 +534,18 @@ class _JobsListScreenState extends State<JobsListScreen> {
                       icon: Icons.calendar_today_rounded,
                       label: job['dates'].toString(),
                       isDark: isDark,
+                    ),
+                    _buildMetaChip(
+                      icon: Icons.people_outline_rounded,
+                      label: isQuotaFull
+                          ? 'Kontenjan Doldu ($acceptedCount/$workerCount)'
+                          : (acceptedCount > 0
+                              ? 'Kontenjan: $acceptedCount/$workerCount'
+                              : (workerCount > 1 ? '$workerCount Kişi Aranıyor' : '1 Kişi Aranıyor')),
+                      isDark: isDark,
+                      iconColor: isQuotaFull
+                          ? Colors.orange
+                          : (isDark ? const Color(0xFFA78BFA) : const Color(0xFF7C3AED)),
                     ),
                   ],
                 ),
@@ -629,11 +572,43 @@ class _JobsListScreenState extends State<JobsListScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final primaryColor = isDark ? const Color(0xFF60A5FA) : const Color(0xFF111827);
 
+    final workerCount = int.tryParse(job['worker_count']?.toString() ?? '1') ?? 1;
+    final jobApps = _applications.where((app) => app['job_id'].toString() == job['id'].toString()).toList();
+    final localAcceptedCount = jobApps.where((app) => ['accepted', 'in_progress', 'completed'].contains(app['app_status'])).length;
+    final backendAcceptedCount = int.tryParse(job['accepted_count']?.toString() ?? '0') ?? 0;
+    final acceptedCount = localAcceptedCount > 0 ? localAcceptedCount : backendAcceptedCount;
+    final isQuotaFull = acceptedCount >= workerCount;
+
     if (!widget.isEmployer) {
       final myApp = _applications.where((app) => app['job_id'].toString() == job['id'].toString()).firstOrNull;
       
       if (myApp == null) {
-        // Henüz başvurulmamış ilan
+        // Kontenjan dolmuşsa başvuru butonunu devre dışı bırakıp durum rozeti göster
+        if (isQuotaFull) {
+          return Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+            decoration: BoxDecoration(
+              color: Colors.orange.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+            ),
+            alignment: Alignment.center,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.people_alt_outlined, color: Colors.orange, size: 18),
+                const SizedBox(width: 8),
+                Text(
+                  'Kontenjan Doldu ($acceptedCount/$workerCount)',
+                  style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+              ],
+            ),
+          );
+        }
+
+        // Henüz başvurulmamış açık ilan
         return SizedBox(
           width: double.infinity,
           child: ElevatedButton(
@@ -749,6 +724,11 @@ class _JobsListScreenState extends State<JobsListScreen> {
     // Bu ilana ait başvuruları bul
     final jobApps = _applications.where((app) => app['job_id'].toString() == jobId).toList();
 
+    final targetJob = _jobs.where((j) => j['id'].toString() == jobId).firstOrNull;
+    final workerCount = int.tryParse(targetJob?['worker_count']?.toString() ?? '1') ?? 1;
+    final acceptedCount = jobApps.where((app) => ['accepted', 'in_progress', 'completed'].contains(app['app_status'])).length;
+    final isQuotaFull = acceptedCount >= workerCount;
+
     if (jobApps.isEmpty) {
       if (jobStatus == 'open') {
         return EmptyStateView.noApplicants();
@@ -777,6 +757,41 @@ class _JobsListScreenState extends State<JobsListScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: isQuotaFull
+                ? Colors.amber.withValues(alpha: 0.12)
+                : (isDark ? const Color(0xFF1E232B) : const Color(0xFFF1F5F9)),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: isQuotaFull
+                  ? Colors.amber.withValues(alpha: 0.4)
+                  : (isDark ? const Color(0xFF282F3A) : Colors.grey.shade300),
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                isQuotaFull ? Icons.check_circle_outline : Icons.people_outline,
+                size: 16,
+                color: isQuotaFull ? Colors.amber.shade800 : (isDark ? Colors.blue.shade300 : Colors.blue.shade700),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Kontenjan Durumu: $acceptedCount / $workerCount Kişi Onaylandı',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.bold,
+                  color: isQuotaFull
+                      ? (isDark ? Colors.amber.shade300 : Colors.amber.shade900)
+                      : (isDark ? Colors.white70 : Colors.black87),
+                ),
+              ),
+            ],
+          ),
+        ),
         Text(
           'Gelen Başvurular:',
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: primaryColor),

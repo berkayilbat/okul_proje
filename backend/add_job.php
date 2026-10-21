@@ -23,6 +23,7 @@ $working_hours = isset($data->working_hours) ? sanitize_text($data->working_hour
 $wage = sanitize_float($data->wage, 0.0, 0.0);
 $description = isset($data->description) ? sanitize_text($data->description, 2000) : '';
 $dates = sanitize_text($data->dates, 100);
+$worker_count = isset($data->worker_count) ? max(1, min(100, (int)$data->worker_count)) : 1;
 $status = 'open';
 
 if (empty($employer_phone)) {
@@ -40,10 +41,10 @@ if ($wage <= 0) {
     exit();
 }
 
-$stmt = $conn->prepare("INSERT INTO jobs (employer_phone, title, location, working_hours, wage, description, dates, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+$stmt = $conn->prepare("INSERT INTO jobs (employer_phone, title, location, working_hours, wage, description, dates, worker_count, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
 
 try {
-    $stmt->execute([$employer_phone, $title, $location, $working_hours, $wage, $description, $dates, $status]);
+    $stmt->execute([$employer_phone, $title, $location, $working_hours, $wage, $description, $dates, $worker_count, $status]);
     echo json_encode(["status" => "success", "message" => "İlan başarıyla yayınlandı."]);
 } catch (Exception $e) {
     echo json_encode(["status" => "error", "message" => "İlan yayınlanırken bir sorun oluştu. Lütfen tekrar deneyin."]);

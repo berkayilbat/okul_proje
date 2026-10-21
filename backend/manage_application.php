@@ -23,6 +23,41 @@ if ($application_id <= 0 || $action === null) {
 
 try {
     if ($action === 'accept') {
+        // Başvuru ve ilanın kontenjan durumunu doğrula
+        $appStmt = $conn->prepare("SELECT job_id, status FROM job_applications WHERE id = ?");
+        $appStmt->execute([$application_id]);
+        $app = $appStmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$app) {
+            echo json_encode(["status" => "error", "message" => "Başvuru bulunamadı."]);
+            exit();
+        }
+
+        $job_id = (int)$app['job_id'];
+
+        $jobStmt = $conn->prepare("SELECT worker_count, status FROM jobs WHERE id = ?");
+        $jobStmt->execute([$job_id]);
+        $job = $jobStmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$job) {
+            echo json_encode(["status" => "error", "message" => "İlan bulunamadı."]);
+            exit();
+        }
+
+        $workerCount = (int)($job['worker_count'] ?? 1);
+
+        $countStmt = $conn->prepare("SELECT COUNT(*) FROM job_applications WHERE job_id = ? AND status IN ('accepted', 'in_progress', 'completed')");
+        $countStmt->execute([$job_id]);
+        $filledCount = (int)$countStmt->fetchColumn();
+
+        if ($filledCount >= $workerCount) {
+            echo json_encode([
+                "status" => "error",
+                "message" => "Bu ilan için belirlenen kontenjan dolmuştur ($workerCount/$workerCount kişi)."
+            ]);
+            exit();
+        }
+
         $stmt = $conn->prepare("UPDATE job_applications SET status = 'accepted' WHERE id = ?");
         $stmt->execute([$application_id]);
         echo json_encode(["status" => "success", "message" => "Başvuru onaylandı."]);
@@ -56,14 +91,15 @@ try {
         $job_id = (int)$application['job_id'];
         $employee_phone = $application['employee_phone'];
 
-        // İlandan ücreti ve işveren telefonunu al
-        $jobStmt = $conn->prepare("SELECT wage, employer_phone FROM jobs WHERE id = ?");
+        // İlandan ücreti, işveren telefonunu ve worker_count bilgisini al
+        $jobStmt = $conn->prepare("SELECT wage, employer_phone, worker_count FROM jobs WHERE id = ?");
         $jobStmt->execute([$job_id]);
         $job = $jobStmt->fetch(PDO::FETCH_ASSOC);
 
         if ($job) {
             $wage = floatval($job['wage']);
             $employer_phone = $job['employer_phone'];
+            $workerCount = (int)($job['worker_count'] ?? 1);
 
             $conn->beginTransaction();
 
@@ -82,9 +118,20 @@ try {
                 $updateApp = $conn->prepare("UPDATE job_applications SET status = 'completed' WHERE id = ?");
                 $updateApp->execute([$application_id]);
                 
-                // İlanı kapat
-                $updateJob = $conn->prepare("UPDATE jobs SET status = 'closed' WHERE id = ?");
-                $updateJob->execute([$job_id]);
+                // Çoklu çalışan kontrolü: Eğer hala aktif ('accepted' veya 'in_progress') çalışan kalmadıysa
+                // ve tamamlanan çalışan sayısı kontenjana ulaştıysa ilanı kapat ('closed')
+                $activeCountStmt = $conn->prepare("SELECT COUNT(*) FROM job_applications WHERE job_id = ? AND status IN ('accepted', 'in_progress')");
+                $activeCountStmt->execute([$job_id]);
+                $remainingActive = (int)$activeCountStmt->fetchColumn();
+
+                $completedCountStmt = $conn->prepare("SELECT COUNT(*) FROM job_applications WHERE job_id = ? AND status = 'completed'");
+                $completedCountStmt->execute([$job_id]);
+                $completedCount = (int)$completedCountStmt->fetchColumn();
+
+                if ($remainingActive === 0 && $completedCount >= $workerCount) {
+                    $updateJob = $conn->prepare("UPDATE jobs SET status = 'closed' WHERE id = ?");
+                    $updateJob->execute([$job_id]);
+                }
 
                 $conn->commit();
 

@@ -13,16 +13,30 @@ $data = json_decode(file_get_contents("php://input"));
 $action = sanitize_enum($data->action ?? null, ['employer_jobs', 'all'], 'all');
 
 try {
+    $baseQuery = "
+        SELECT j.*,
+               COALESCE(app_stats.accepted_count, 0) AS accepted_count,
+               COALESCE(app_stats.applied_count, 0) AS applied_count
+        FROM jobs j
+        LEFT JOIN (
+            SELECT job_id,
+                   COUNT(*) AS applied_count,
+                   SUM(CASE WHEN status IN ('accepted', 'in_progress', 'completed') THEN 1 ELSE 0 END) AS accepted_count
+            FROM job_applications
+            GROUP BY job_id
+        ) app_stats ON j.id = app_stats.job_id
+    ";
+
     if ($action === 'employer_jobs') {
         // İşverenin kendi açtığı ilanları getirir
         $employer_phone = sanitize_phone($data->employer_phone ?? '');
-        $stmt = $conn->prepare("SELECT * FROM jobs WHERE employer_phone = ? ORDER BY id DESC");
+        $stmt = $conn->prepare($baseQuery . " WHERE j.employer_phone = ? ORDER BY j.id DESC");
         $stmt->execute([$employer_phone]);
         $jobs = $stmt->fetchAll(PDO::FETCH_ASSOC);
         echo json_encode(["status" => "success", "data" => $jobs]);
     } else {
         // Tüm açık ilanları (Çalışan tarafı için)
-        $stmt = $conn->query("SELECT * FROM jobs WHERE status = 'open' ORDER BY id DESC");
+        $stmt = $conn->query($baseQuery . " WHERE j.status = 'open' ORDER BY j.id DESC");
         $jobs = $stmt->fetchAll(PDO::FETCH_ASSOC);
         echo json_encode(["status" => "success", "data" => $jobs]);
     }

@@ -3,6 +3,8 @@ import 'utils/app_page_route.dart';
 import 'package:flutter/material.dart';
 import 'theme/app_theme.dart';
 import 'add_job_screen.dart';
+import 'job_service.dart';
+import 'widgets/app_toast.dart';
 
 class JobDetailScreen extends StatelessWidget {
   final dynamic job;
@@ -17,6 +19,51 @@ class JobDetailScreen extends StatelessWidget {
     this.hasApplied = false,
     this.onApply,
   });
+
+  void _showDeleteJobDialog(BuildContext context, String jobId) {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        title: const Text('İlanı Sil'),
+        content: const Text('Bu ilanı silmek istediğinize emin misiniz? Bu işlem geri alınamaz.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('İptal'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade50,
+              foregroundColor: Colors.red,
+            ),
+            onPressed: () async {
+              Navigator.pop(dialogContext); // Dialog'u kapat
+              
+              // Yükleme göster
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (_) => const Center(child: CircularProgressIndicator()),
+              );
+              
+              final result = await JobService.deleteJob(jobId);
+              
+              if (!context.mounted) return;
+              Navigator.pop(context); // Loading dialog'unu kapat
+              
+              if (result['status'] == 'success') {
+                AppToast.showSuccess(context, result['message'] ?? 'İlan başarıyla silindi');
+                Navigator.pop(context, true); // Detay sayfasını kapatıp listeye true döndür
+              } else {
+                AppToast.showError(context, result['message'] ?? 'İlan silinemedi');
+              }
+            },
+            child: const Text('Sil'),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -35,12 +82,15 @@ class JobDetailScreen extends StatelessWidget {
     final dates = job['dates']?.toString() ?? 'Belirtilmemiş';
     final description = job['description']?.toString() ?? 'Açıklama bulunmuyor.';
     final employerPhone = job['employer_phone']?.toString() ?? '';
+    final workerCount = int.tryParse(job['worker_count']?.toString() ?? '1') ?? 1;
+    final acceptedCount = int.tryParse(job['accepted_count']?.toString() ?? '0') ?? 0;
+    final isQuotaFull = acceptedCount >= workerCount;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('İlan Detayı', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
         actions: [
-          if (isEmployer && (job['status'] == null || job['status'] == 'open'))
+          if (isEmployer && (job['status'] == null || job['status'] == 'open')) ...[
             IconButton(
               icon: const Icon(Icons.edit_outlined),
               tooltip: 'İlanı Düzenle',
@@ -54,6 +104,13 @@ class JobDetailScreen extends StatelessWidget {
                 }
               },
             ),
+            IconButton(
+              icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+              tooltip: 'İlanı Sil',
+              onPressed: () => _showDeleteJobDialog(context, jobId),
+            ),
+            const SizedBox(width: 4),
+          ],
         ],
       ),
       body: Column(
@@ -262,6 +319,19 @@ class JobDetailScreen extends StatelessWidget {
                           textColor: textBody,
                           subColor: textSecondary,
                         ),
+                        Divider(color: cardBorder, height: 20),
+                        _buildDetailRow(
+                          icon: Icons.people_outline_rounded,
+                          label: 'Kontenjan / Pozisyon',
+                          value: isQuotaFull
+                              ? '$workerCount Kişi (Kontenjan Doldu)'
+                              : (acceptedCount > 0
+                                  ? '$workerCount Kişi ($acceptedCount/$workerCount Dolu)'
+                                  : '$workerCount Kişi'),
+                          iconColor: isQuotaFull ? Colors.orange : Colors.purple,
+                          textColor: textBody,
+                          subColor: textSecondary,
+                        ),
                       ],
                     ),
                   ),
@@ -380,15 +450,19 @@ class JobDetailScreen extends StatelessWidget {
                   width: double.infinity,
                   height: 50,
                   child: ElevatedButton(
-                    onPressed: hasApplied ? null : onApply,
+                    onPressed: (hasApplied || isQuotaFull) ? null : onApply,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: hasApplied ? Colors.grey : primaryColor,
+                      backgroundColor: (hasApplied || isQuotaFull) ? Colors.grey : primaryColor,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                       elevation: 0,
                     ),
                     child: Text(
-                      hasApplied ? 'Bu İlana Başvuruldu' : 'Hemen Başvur ($wage₺)',
+                      hasApplied
+                          ? 'Bu İlana Başvuruldu'
+                          : (isQuotaFull
+                              ? 'Kontenjan Doldu ($acceptedCount/$workerCount)'
+                              : 'Hemen Başvur ($wage₺)'),
                       style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                   ),

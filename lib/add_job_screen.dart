@@ -27,6 +27,7 @@ class _AddJobScreenState extends State<AddJobScreen> {
   final _hoursController = TextEditingController();
   final _priceController = TextEditingController();
 
+  int _workerCount = 1;
   bool _isLoading = false;
   String? _selectedDistrict;
 
@@ -42,6 +43,12 @@ class _AddJobScreenState extends State<AddJobScreen> {
       _hoursController.text = job['working_hours']?.toString() ?? '';
       _priceController.text = job['wage'] != null ? job['wage'].toString() : '';
       _dateController.text = job['dates']?.toString() ?? '';
+
+      final rawCount = job['worker_count'];
+      if (rawCount != null) {
+        _workerCount = int.tryParse(rawCount.toString()) ?? 1;
+        if (_workerCount < 1) _workerCount = 1;
+      }
 
       final rawLoc = job['location']?.toString() ?? '';
       if (rawLoc.isNotEmpty) {
@@ -96,6 +103,7 @@ class _AddJobScreenState extends State<AddJobScreen> {
         wage: _priceController.text.trim().replaceAll(',', '.'),
         description: Validators.sanitizeText(_descController.text),
         dates: Validators.sanitizeText(_dateController.text),
+        workerCount: _workerCount,
       );
     } else {
       result = await JobService.addJob(
@@ -105,6 +113,7 @@ class _AddJobScreenState extends State<AddJobScreen> {
         wage: _priceController.text.trim().replaceAll(',', '.'),
         description: Validators.sanitizeText(_descController.text),
         dates: Validators.sanitizeText(_dateController.text),
+        workerCount: _workerCount,
       );
     }
     
@@ -417,6 +426,13 @@ class _AddJobScreenState extends State<AddJobScreen> {
               const SizedBox(height: 32),
               
               _buildSectionTitle('Detaylar'),
+              _buildWorkerCountSelector(
+                isDark: isDark,
+                cardBg: cardBg,
+                borderColor: borderColor,
+                primaryColor: primaryColor,
+              ),
+              const SizedBox(height: 16),
               _buildModernTextField(
                 controller: _hoursController,
                 label: 'Çalışma Saatleri (Örn: 09:00 - 18:00)',
@@ -475,6 +491,155 @@ class _AddJobScreenState extends State<AddJobScreen> {
     );
   }
 
+  Widget _buildWorkerCountSelector({
+    required bool isDark,
+    required Color cardBg,
+    required Color borderColor,
+    required Color primaryColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: borderColor),
+        boxShadow: isDark
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.02),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: primaryColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(Icons.group_outlined, color: primaryColor, size: 22),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Aranan Çalışan Sayısı (Kontenjan)',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? const Color(0xFFF1F5F9) : Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Bu ilan için kaç kişiye ihtiyacınız var?',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark ? const Color(0xFF94A3B8) : Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Stepper: [-]  count  [+]
+              Container(
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF1E232B) : const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isDark ? const Color(0xFF282F3A) : Colors.grey.shade300,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.remove_rounded, size: 18),
+                      padding: const EdgeInsets.all(6),
+                      constraints: const BoxConstraints(),
+                      onPressed: _workerCount > 1
+                          ? () => setState(() => _workerCount--)
+                          : null,
+                      tooltip: 'Azalt',
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      child: Text(
+                        '$_workerCount',
+                        key: const Key('worker_count_text'),
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: primaryColor,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.add_rounded, size: 18),
+                      padding: const EdgeInsets.all(6),
+                      constraints: const BoxConstraints(),
+                      onPressed: _workerCount < 50
+                          ? () => setState(() => _workerCount++)
+                          : null,
+                      tooltip: 'Artır',
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          // Hızlı Seçim Butonları (Pills)
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: [1, 2, 3, 5, 10].map((count) {
+              final isSelected = _workerCount == count;
+              return ChoiceChip(
+                key: Key('worker_count_chip_$count'),
+                label: Text('$count Kişi'),
+                selected: isSelected,
+                onSelected: (selected) {
+                  if (selected) {
+                    setState(() => _workerCount = count);
+                  }
+                },
+                selectedColor: primaryColor,
+                backgroundColor: isDark ? const Color(0xFF1E232B) : const Color(0xFFF1F5F9),
+                labelStyle: TextStyle(
+                  color: isSelected
+                      ? (isDark ? Colors.black : Colors.white)
+                      : (isDark ? const Color(0xFF94A3B8) : Colors.grey.shade700),
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  fontSize: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  side: BorderSide(
+                    color: isSelected
+                        ? primaryColor
+                        : (isDark ? const Color(0xFF282F3A) : Colors.grey.shade300),
+                  ),
+                ),
+                showCheckmark: false,
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildSectionTitle(String title) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
@@ -515,7 +680,7 @@ class _AddJobScreenState extends State<AddJobScreen> {
             ? null
             : [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.02),
+                  color: Colors.black.withValues(alpha: 0.02),
                   blurRadius: 8,
                   offset: const Offset(0, 4),
                 ),

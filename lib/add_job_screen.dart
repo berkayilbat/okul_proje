@@ -5,10 +5,13 @@ import 'constants.dart';
 import 'job_service.dart';
 import 'validators.dart';
 import 'widgets/app_snackbar.dart';
+import 'widgets/app_toast.dart';
 import 'theme/app_theme.dart';
 
 class AddJobScreen extends StatefulWidget {
-  const AddJobScreen({super.key});
+  final dynamic jobToEdit;
+
+  const AddJobScreen({super.key, this.jobToEdit});
 
   @override
   State<AddJobScreen> createState() => _AddJobScreenState();
@@ -27,10 +30,47 @@ class _AddJobScreenState extends State<AddJobScreen> {
   bool _isLoading = false;
   String? _selectedDistrict;
 
+  bool get isEditing => widget.jobToEdit != null;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.jobToEdit != null) {
+      final job = widget.jobToEdit;
+      _titleController.text = job['title']?.toString() ?? '';
+      _descController.text = job['description']?.toString() ?? '';
+      _hoursController.text = job['working_hours']?.toString() ?? '';
+      _priceController.text = job['wage'] != null ? job['wage'].toString() : '';
+      _dateController.text = job['dates']?.toString() ?? '';
+
+      final rawLoc = job['location']?.toString() ?? '';
+      if (rawLoc.isNotEmpty) {
+        final parts = rawLoc.split(',').map((e) => e.trim()).toList();
+        if (parts.length >= 2) {
+          final candidate = parts[1];
+          if (AppConstants.ankaraDistricts.contains(candidate)) {
+            _selectedDistrict = candidate;
+            _locationController.text = parts.length > 2 ? parts.sublist(2).join(', ') : '';
+          } else {
+            _locationController.text = rawLoc;
+          }
+        } else {
+          for (final d in AppConstants.ankaraDistricts) {
+            if (rawLoc.toLowerCase().contains(d.toLowerCase())) {
+              _selectedDistrict = d;
+              break;
+            }
+          }
+          _locationController.text = rawLoc;
+        }
+      }
+    }
+  }
+
   void _publishJob() async {
     if (!_formKey.currentState!.validate()) {
       setState(() => _autoValidateMode = AutovalidateMode.onUserInteraction);
-      AppSnackbar.showWarning(
+      AppToast.showWarning(
         context,
         'Lütfen işaretli tüm zorunlu alanları doldurun.',
       );
@@ -42,27 +82,47 @@ class _AddJobScreenState extends State<AddJobScreen> {
     final cleanTitle = Validators.sanitizeText(_titleController.text);
     final cleanDistrict = Validators.sanitizeText(_selectedDistrict ?? '');
     final cleanLocationDetail = Validators.sanitizeText(_locationController.text);
-    final fullLocation = "Ankara, $cleanDistrict, $cleanLocationDetail";
-    final result = await JobService.addJob(
-      title: cleanTitle,
-      location: fullLocation,
-      workingHours: Validators.sanitizeText(_hoursController.text),
-      wage: _priceController.text.trim().replaceAll(',', '.'),
-      description: Validators.sanitizeText(_descController.text),
-      dates: Validators.sanitizeText(_dateController.text),
-    );
+    final fullLocation = cleanDistrict.isNotEmpty
+        ? "Ankara, $cleanDistrict, $cleanLocationDetail"
+        : cleanLocationDetail;
+
+    final Map<String, dynamic> result;
+    if (isEditing) {
+      result = await JobService.updateJob(
+        jobId: widget.jobToEdit['id'].toString(),
+        title: cleanTitle,
+        location: fullLocation,
+        workingHours: Validators.sanitizeText(_hoursController.text),
+        wage: _priceController.text.trim().replaceAll(',', '.'),
+        description: Validators.sanitizeText(_descController.text),
+        dates: Validators.sanitizeText(_dateController.text),
+      );
+    } else {
+      result = await JobService.addJob(
+        title: cleanTitle,
+        location: fullLocation,
+        workingHours: Validators.sanitizeText(_hoursController.text),
+        wage: _priceController.text.trim().replaceAll(',', '.'),
+        description: Validators.sanitizeText(_descController.text),
+        dates: Validators.sanitizeText(_dateController.text),
+      );
+    }
     
     if (!mounted) return;
     setState(() => _isLoading = false);
     
     if (result['status'] == 'success') {
-      AppSnackbar.showSuccess(context, 'İlanınız başarıyla yayınlandı!');
+      AppToast.showSuccess(
+        context,
+        isEditing ? 'İlanınız başarıyla güncellendi!' : 'İlanınız başarıyla yayınlandı!',
+      );
       Navigator.pop(context, true);
     } else {
-      AppSnackbar.showError(
+      AppToast.showError(
         context,
-        result['message'] ?? 'Bir hata oluştu',
+        result['message'] ?? (isEditing ? 'İlan güncellenirken bir sorun oluştu.' : 'Bir hata oluştu'),
         onRetry: result['is_network_error'] == true ? _publishJob : null,
+        retryLabel: 'Tekrar Dene',
       );
     }
   }
@@ -209,7 +269,7 @@ class _AddJobScreenState extends State<AddJobScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Yeni İlan Oluştur', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(isEditing ? 'İlanı Düzenle' : 'Yeni İlan Oluştur', style: const TextStyle(fontWeight: FontWeight.bold)),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
@@ -400,9 +460,12 @@ class _AddJobScreenState extends State<AddJobScreen> {
                           borderRadius: BorderRadius.circular(16),
                         ),
                         elevation: 4,
-                        shadowColor: primaryColor.withOpacity(0.5),
+                        shadowColor: primaryColor.withValues(alpha: 0.5),
                       ),
-                      child: const Text('İlanı Yayınla', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      child: Text(
+                        isEditing ? 'Değişiklikleri Kaydet' : 'İlanı Yayınla',
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
                     ),
               const SizedBox(height: 20),
             ],

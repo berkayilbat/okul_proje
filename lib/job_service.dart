@@ -43,6 +43,45 @@ class JobService {
     }
   }
 
+  // İlan Güncelleme (İşveren)
+  static Future<Map<String, dynamic>> updateJob({
+    required String jobId,
+    required String title,
+    required String location,
+    required String workingHours,
+    required String wage,
+    required String description,
+    required String dates,
+  }) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final phone = prefs.getString('user_phone') ?? '';
+
+      final response = await NetworkHelper.postWithRetry(
+        Uri.parse('$_baseUrl/update_job.php'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'job_id': jobId,
+          'employer_phone': phone,
+          'title': title,
+          'location': location,
+          'working_hours': workingHours,
+          'wage': wage,
+          'description': description,
+          'dates': dates,
+        }),
+      );
+
+      return NetworkHelper.parseResponse(response);
+    } catch (e) {
+      return {
+        'status': 'error',
+        'is_network_error': NetworkHelper.isNetworkException(e),
+        'message': NetworkHelper.getFriendlyErrorMessage(e),
+      };
+    }
+  }
+
   // İlan Silme (İşveren)
   static Future<Map<String, dynamic>> deleteJob(String jobId) async {
     try {

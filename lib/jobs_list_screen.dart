@@ -275,9 +275,9 @@ class _JobsListScreenState extends State<JobsListScreen> {
     );
   }
 
-  void _openJobDetail(dynamic job) {
+  void _openJobDetail(dynamic job) async {
     final myApp = _applications.where((app) => app['job_id'].toString() == job['id'].toString()).firstOrNull;
-    Navigator.push(
+    final result = await Navigator.push(
       context,
       AppPageRoute.hero(
         JobDetailScreen(
@@ -291,6 +291,19 @@ class _JobsListScreenState extends State<JobsListScreen> {
         ),
       ),
     );
+    if (result == true && mounted) {
+      _fetchJobs();
+    }
+  }
+
+  void _openEditJob(dynamic job) async {
+    final updated = await Navigator.push(
+      context,
+      AppPageRoute.slideUp(AddJobScreen(jobToEdit: job)),
+    );
+    if (updated == true && mounted) {
+      _fetchJobs();
+    }
   }
 
   Widget _buildJobsList(List<dynamic> targetJobs) {
@@ -552,9 +565,18 @@ class _JobsListScreenState extends State<JobsListScreen> {
                     if (widget.isEmployer && job['status'] == 'open') ...[
                       const SizedBox(width: 4),
                       IconButton(
+                        icon: Icon(Icons.edit_outlined, color: isDark ? Colors.white70 : Colors.black54, size: 20),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        tooltip: 'İlanı Düzenle',
+                        onPressed: () => _openEditJob(job),
+                      ),
+                      const SizedBox(width: 6),
+                      IconButton(
                         icon: Icon(Icons.delete_outline, color: isDark ? Colors.white70 : Colors.black54, size: 20),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
+                        tooltip: 'İlanı Sil',
                         onPressed: () => _showDeleteJobDialog(job),
                       ),
                     ],

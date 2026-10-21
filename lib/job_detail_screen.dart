@@ -2,6 +2,7 @@ import 'utils/job_helpers.dart';
 import 'utils/app_page_route.dart';
 import 'package:flutter/material.dart';
 import 'theme/app_theme.dart';
+import 'add_job_screen.dart';
 
 class JobDetailScreen extends StatelessWidget {
   final dynamic job;
@@ -38,6 +39,22 @@ class JobDetailScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('İlan Detayı', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+        actions: [
+          if (isEmployer && (job['status'] == null || job['status'] == 'open'))
+            IconButton(
+              icon: const Icon(Icons.edit_outlined),
+              tooltip: 'İlanı Düzenle',
+              onPressed: () async {
+                final updated = await Navigator.push(
+                  context,
+                  AppPageRoute.slideUp(AddJobScreen(jobToEdit: job)),
+                );
+                if (updated == true && context.mounted) {
+                  Navigator.pop(context, true);
+                }
+              },
+            ),
+        ],
       ),
       body: Column(
         children: [
@@ -373,6 +390,39 @@ class JobDetailScreen extends StatelessWidget {
                     child: Text(
                       hasApplied ? 'Bu İlana Başvuruldu' : 'Hemen Başvur ($wage₺)',
                       style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+              ),
+            )
+          else if (job['status'] == null || job['status'] == 'open')
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: cardBg,
+                border: Border(top: BorderSide(color: cardBorder)),
+              ),
+              child: SafeArea(
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.edit_rounded, size: 20),
+                    label: const Text('İlanı Düzenle', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    onPressed: () async {
+                      final updated = await Navigator.push(
+                        context,
+                        AppPageRoute.slideUp(AddJobScreen(jobToEdit: job)),
+                      );
+                      if (updated == true && context.mounted) {
+                        Navigator.pop(context, true);
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: primaryColor,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      elevation: 0,
                     ),
                   ),
                 ),
